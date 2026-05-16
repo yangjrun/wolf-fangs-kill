@@ -1,0 +1,26 @@
+{
+  "name": "wolf-fangs-kill",
+  "version": "0.1.0",
+  "private": true,
+  "description": "AI 狼人杀 - Claude API 驱动的 9 人板狼人杀游戏",
+  "type": "module",
+  "packageManager": "pnpm@10.19.0",
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "scripts": {
+    "dev": "pnpm --filter @wfk/frontend dev",
+    "dev:backend": "pnpm --filter @wfk/backend dev",
+    "dev:all": "pnpm -r --parallel run dev",
+    "build": "pnpm -r run build",
+    "test": "pnpm -r run test",
+    "typecheck": "pnpm -r run typecheck",
+    "cli": "tsx scripts/run-game-cli.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.0",
+    "vitest": "^2.1.0"
+  }
+}
