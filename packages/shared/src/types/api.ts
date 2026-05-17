@@ -28,6 +28,7 @@ export interface LLMRequest {
   tools: ToolDefinition[];
   messages: MessageContent[];
   tool_choice?: { type: 'any' | 'auto' | 'tool'; name?: string };
+  temperature?: number;
 }
 
 export interface LLMUsage {

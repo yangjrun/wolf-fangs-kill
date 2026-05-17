@@ -43,6 +43,7 @@ const QUIET = args.includes('--quiet');
 const MODEL = args.find((a) => a.startsWith('--model='))?.slice(8) ?? 'claude-sonnet-4-6';
 const BACKEND_URL =
   args.find((a) => a.startsWith('--backend='))?.slice(10) ?? 'http://localhost:8787';
+const BOARD_ID = args.find((a) => a.startsWith('--board='))?.slice(8);
 
 const log = (...rest: unknown[]) => {
   if (!QUIET) console.log(...rest);
@@ -73,6 +74,15 @@ function formatEvent(state: GameState, e: GameEvent): string {
       return e.targetId
         ? `${day} ${phase} 🔫 猎人 ${e.hunterId} 开枪带走 ${e.targetId}`
         : `${day} ${phase} 🔫 猎人 ${e.hunterId} 没开枪`;
+    case 'GUARD_PROTECT':
+      return `${day} ${phase} 🛡 守卫 ${e.guardId} 守护 ${e.targetId}`;
+    case 'IDIOT_REVEAL':
+      return `${day} ${phase} 🃏 ${e.playerId} 翻牌为白痴（免死失投票权）`;
+    case 'KNIGHT_DUEL': {
+      const targetRole = ROLE_NAMES_ZH[e.targetRole];
+      const result = e.killedId === e.targetId ? `胜利（${e.targetId} 是狼）` : '失败（自爆）';
+      return `${day} ${phase} ⚔ 骑士 ${e.knightId} → ${e.targetId}(${targetRole}) ${result}`;
+    }
     case 'DEATH': {
       const p = findPlayer(state, e.playerId);
       const role = p ? `(${ROLE_NAMES_ZH[p.role]})` : '';
@@ -86,8 +96,24 @@ function formatEvent(state: GameState, e: GameEvent): string {
       return `${day} ${phase} 🗳 ${e.voterId} → ${e.targetId}`;
     case 'EXECUTION':
       return `${day} ${phase} ⚖ 投票出局 ${e.targetId}`;
+    case 'CUPID_LINK':
+      return `${day} ${phase} ❤ 丘比特 ${e.cupidId} 连接情侣：${e.target1Id} ↔ ${e.target2Id}`;
+    case 'SHERIFF_RUN':
+      return `${day} ${phase} 🎖 ${e.runnerId} 上警：${e.content}`;
+    case 'SHERIFF_SKIP':
+      return `${day} ${phase} 🚫 ${e.playerId} 不上警`;
+    case 'SHERIFF_VOTE':
+      return `${day} ${phase} 🗳 ${e.voterId} → ${e.targetId}（警长票）`;
+    case 'SHERIFF_ELECTED':
+      return e.sheriffId
+        ? `${day} ${phase} 🎖 警长当选：${e.sheriffId}`
+        : `${day} ${phase} 🎖 警长选举无效（无人参选或票数为零）`;
+    case 'BADGE_TRANSFERRED':
+      return `${day} ${phase} 🎖 ${e.fromId} → ${e.toId} 警徽传递`;
+    case 'BADGE_DESTROYED':
+      return `${day} ${phase} 🎖 ${e.fromId} 撕毁了警徽`;
     case 'GAME_END':
-      return `${day} ${phase} 🏁 ${e.winner === 'wolves' ? '🐺 狼人' : '👥 好人'}胜 — ${e.reason}`;
+      return `${day} ${phase} 🏁 ${e.winner === 'wolves' ? '🐺 狼人' : e.winner === 'lovers' ? '❤ 情侣' : '👥 好人'}胜 — ${e.reason}`;
     default: {
       const _: never = e;
       void _;
@@ -120,6 +146,59 @@ function botAction(state: GameState, pending: PendingAction): PlayerAction {
     }
     const target = others[Math.floor(Math.random() * others.length)]!;
     return { type: 'HUNTER_SHOOT', playerId: actor.id, targetId: target.id, reasoning: 'bot' };
+  }
+  if (pending.allowedActionTypes.includes('GUARD_PROTECT')) {
+    const last = state.guardState.lastGuarded;
+    const candidates = alive.filter((p) => p.id !== last);
+    const target = candidates[Math.floor(Math.random() * candidates.length)] ?? alive[0]!;
+    return { type: 'GUARD_PROTECT', playerId: actor.id, targetId: target.id, reasoning: 'bot' };
+  }
+  if (pending.allowedActionTypes.includes('CUPID_LINK')) {
+    // Pick two random alive players (could include self)
+    const shuffled = [...alive].sort(() => Math.random() - 0.5);
+    const t1 = shuffled[0]!;
+    const t2 = shuffled.find((p) => p.id !== t1.id) ?? shuffled[1]!;
+    return {
+      type: 'CUPID_LINK',
+      playerId: actor.id,
+      target1Id: t1.id,
+      target2Id: t2.id,
+      reasoning: 'bot',
+    };
+  }
+  if (pending.allowedActionTypes.includes('RUN_FOR_SHERIFF')) {
+    // 50% chance to run with a campaign speech
+    if (Math.random() < 0.5) {
+      return {
+        type: 'RUN_FOR_SHERIFF',
+        playerId: actor.id,
+        content: '我有警长之才。',
+        internalThought: 'bot',
+      };
+    }
+    return { type: 'SKIP_SHERIFF', playerId: actor.id, reasoning: 'bot' };
+  }
+  if (pending.allowedActionTypes.includes('SHERIFF_VOTE')) {
+    const runners = state.sheriffElection?.runners.filter((id) =>
+      state.players.find((p) => p.id === id)?.alive,
+    ) ?? [];
+    if (runners.length === 0) {
+      return { type: 'SHERIFF_VOTE', playerId: actor.id, targetId: 'abstain', reasoning: 'bot' };
+    }
+    return {
+      type: 'SHERIFF_VOTE',
+      playerId: actor.id,
+      targetId: runners[Math.floor(Math.random() * runners.length)]!,
+      reasoning: 'bot',
+    };
+  }
+  if (pending.allowedActionTypes.includes('TRANSFER_BADGE')) {
+    const candidates = alive.filter((p) => p.id !== actor.id);
+    if (candidates.length === 0) {
+      return { type: 'DESTROY_BADGE', playerId: actor.id, reasoning: 'bot' };
+    }
+    const target = candidates[Math.floor(Math.random() * candidates.length)]!;
+    return { type: 'TRANSFER_BADGE', playerId: actor.id, targetId: target.id, reasoning: 'bot' };
   }
   if (pending.allowedActionTypes.includes('SPEAK')) {
     return {
@@ -210,10 +289,11 @@ async function main(): Promise<void> {
   if (AUTO) log(`Model: ${MODEL}, Backend: ${BACKEND_URL}`);
   log('');
 
-  let state = createGame({ seed: SEED });
+  let state = createGame({ seed: SEED, ...(BOARD_ID ? { boardId: BOARD_ID } : {}) });
   const eventLog = new EventLog();
   const orchestrator = AUTO ? await setupAutoMode(state) : null;
 
+  log(`Board: ${state.board.name} (${state.board.id})`);
   log('角色分配:');
   for (const p of state.players) {
     log(`  ${p.id} (seat ${p.seat}): ${ROLE_NAMES_ZH[p.role]}`);

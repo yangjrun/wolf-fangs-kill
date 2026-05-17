@@ -8,6 +8,10 @@ interface PersistedSettings {
   model: string;
   backendUrl: string;
   anthropicBaseUrl: string;
+  narratorEnabled: boolean;
+  narratorRate: number;
+  narratorVoiceName: string;
+  nightVisionMode: boolean;
 }
 
 const DEFAULTS: PersistedSettings = {
@@ -15,6 +19,10 @@ const DEFAULTS: PersistedSettings = {
   model: "claude-opus-4-7[1m]",
   backendUrl: "", // same-origin; LLMClient appends /api/llm/messages
   anthropicBaseUrl: "",
+  narratorEnabled: false,
+  narratorRate: 1.0,
+  narratorVoiceName: "",
+  nightVisionMode: true,
 };
 
 function load(): PersistedSettings {
@@ -34,22 +42,51 @@ export const useSettingsStore = defineStore("settings", () => {
   const model = ref(loaded.model);
   const backendUrl = ref(loaded.backendUrl);
   const anthropicBaseUrl = ref(loaded.anthropicBaseUrl);
+  const narratorEnabled = ref(loaded.narratorEnabled);
+  const narratorRate = ref(loaded.narratorRate);
+  const narratorVoiceName = ref(loaded.narratorVoiceName);
+  const nightVisionMode = ref(loaded.nightVisionMode);
 
-  watch([apiKey, model, backendUrl, anthropicBaseUrl], () => {
-    try {
-      localStorage.setItem(
-        STORAGE_KEY,
-        JSON.stringify({
-          apiKey: apiKey.value,
-          model: model.value,
-          backendUrl: backendUrl.value,
-          anthropicBaseUrl: anthropicBaseUrl.value,
-        }),
-      );
-    } catch {
-      // ignore quota errors
-    }
-  });
+  watch(
+    [
+      apiKey,
+      model,
+      backendUrl,
+      anthropicBaseUrl,
+      narratorEnabled,
+      narratorRate,
+      narratorVoiceName,
+      nightVisionMode,
+    ],
+    () => {
+      try {
+        localStorage.setItem(
+          STORAGE_KEY,
+          JSON.stringify({
+            apiKey: apiKey.value,
+            model: model.value,
+            backendUrl: backendUrl.value,
+            anthropicBaseUrl: anthropicBaseUrl.value,
+            narratorEnabled: narratorEnabled.value,
+            narratorRate: narratorRate.value,
+            narratorVoiceName: narratorVoiceName.value,
+            nightVisionMode: nightVisionMode.value,
+          }),
+        );
+      } catch {
+        // ignore quota errors
+      }
+    },
+  );
 
-  return { apiKey, model, backendUrl, anthropicBaseUrl };
+  return {
+    apiKey,
+    model,
+    backendUrl,
+    anthropicBaseUrl,
+    narratorEnabled,
+    narratorRate,
+    narratorVoiceName,
+    nightVisionMode,
+  };
 });

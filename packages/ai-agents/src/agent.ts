@@ -1,6 +1,7 @@
 import type {
   AgentDecision,
   AgentToolCall,
+  Difficulty,
   GameState,
   LLMRequest,
   Persona,
@@ -8,7 +9,7 @@ import type {
   TokenUsage,
   ToolName,
 } from '@wfk/shared';
-import { ALL_TOOLS } from '@wfk/shared';
+import { ALL_TOOLS, DEFAULT_DIFFICULTY, DIFFICULTY_TEMPERATURES } from '@wfk/shared';
 
 import type { LLMClient } from './llm-client.js';
 import { buildSystemPrompt } from './prompts/system.js';
@@ -22,6 +23,7 @@ export interface AgentOptions {
   client: LLMClient;
   model: string;
   maxTokens?: number;
+  difficulty?: Difficulty;
 }
 
 /**
@@ -43,6 +45,7 @@ export class Agent {
   private readonly client: LLMClient;
   private readonly model: string;
   private readonly maxTokens: number;
+  private readonly difficulty: Difficulty;
 
   constructor(opts: AgentOptions) {
     this.playerId = opts.player.id;
@@ -51,12 +54,14 @@ export class Agent {
     this.client = opts.client;
     this.model = opts.model;
     this.maxTokens = opts.maxTokens ?? 8192;
+    this.difficulty = opts.difficulty ?? DEFAULT_DIFFICULTY;
 
     this.systemPrompt = buildSystemPrompt({
       persona: opts.persona,
       role: opts.player.role,
       playerId: opts.player.id,
       seat: opts.player.seat,
+      difficulty: this.difficulty,
     });
   }
 
@@ -76,7 +81,7 @@ export class Agent {
       );
     }
 
-    const privateInfo = buildPrivateInfo(state, player);
+    const privateInfo = buildPrivateInfo(state, player, this.difficulty);
     const instruction = getInstruction(state, player);
     const userMessage = buildUserMessage({
       state,
@@ -85,9 +90,19 @@ export class Agent {
       instruction,
     });
 
+    // When the allowed set is a single tool (most phases: vote/speak/kill/check/shoot),
+    // force that tool via tool_choice. This guarantees schema-valid output without
+    // touching the tools array (so prompt cache stays warm). For multi-allowed phases
+    // (only WITCH_ACTION today) we fall back to `any` and let the orchestrator validate.
+    const toolChoice: LLMRequest['tool_choice'] =
+      allowed.length === 1
+        ? { type: 'tool', name: allowed[0] as string }
+        : { type: 'any' };
+
     const request: LLMRequest = {
       model: this.model,
       max_tokens: this.maxTokens,
+      temperature: DIFFICULTY_TEMPERATURES[this.difficulty],
       system: [
         {
           type: 'text',
@@ -108,8 +123,7 @@ export class Agent {
           content: userMessage,
         },
       ],
-      // Force the model to call a tool (not free-text)
-      tool_choice: { type: 'any' },
+      tool_choice: toolChoice,
     };
 
     const start = Date.now();

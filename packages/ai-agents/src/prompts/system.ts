@@ -1,5 +1,5 @@
-import type { Persona, Role } from '@wfk/shared';
-import { ROLE_NAMES_ZH } from '@wfk/shared';
+import type { Difficulty, Persona, Role } from '@wfk/shared';
+import { DIFFICULTY_PROMPT_SUFFIX, ROLE_NAMES_ZH } from '@wfk/shared';
 import { ROLE_RULES } from './role-rules.js';
 
 export interface SystemPromptParams {
@@ -7,6 +7,7 @@ export interface SystemPromptParams {
   role: Role;
   playerId: string;
   seat: number;
+  difficulty?: Difficulty;
 }
 
 /**
@@ -18,7 +19,8 @@ export interface SystemPromptParams {
  * all of that goes in user messages instead.
  */
 export function buildSystemPrompt(params: SystemPromptParams): string {
-  const { persona, role, playerId, seat } = params;
+  const { persona, role, playerId, seat, difficulty } = params;
+  const difficultySuffix = difficulty ? DIFFICULTY_PROMPT_SUFFIX[difficulty] : '';
   return `你是「${persona.name}」，正在玩一场 9 人狼人杀。
 
 # 你的身份
@@ -58,5 +60,5 @@ ${ROLE_RULES[role]}
 - <private_info>：仅你能看到的私密信息（查验结果、队友身份等）
 - <instruction>：当前需要你做的决定
 
-请始终通过工具调用作答，不要纯文本回复。`;
+请始终通过工具调用作答，不要纯文本回复。${difficultySuffix}`;
 }

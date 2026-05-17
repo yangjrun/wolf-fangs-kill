@@ -6,3 +6,6 @@ export * from './constants/roles.js';
 export * from './constants/phases.js';
 export * from './constants/tools.js';
 export * from './constants/personas.js';
+export * from './constants/boards.js';
+export * from './constants/narration.js';
+export * from './constants/difficulty.js';

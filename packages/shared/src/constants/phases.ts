@@ -3,6 +3,8 @@ import type { Phase } from '../types/game.js';
 /** Phase progression within a single day (Night -> Day cycle). */
 export const PHASE_ORDER: readonly Phase[] = [
   'NIGHT_START',
+  'CUPID_LINK',
+  'GUARD_PROTECT',
   'WEREWOLF_KILL',
   'SEER_CHECK',
   'WITCH_ACTION',
@@ -17,7 +19,12 @@ export const PHASE_ORDER: readonly Phase[] = [
 
 export const PHASE_NAMES_ZH: Record<Phase, string> = {
   GAME_START: '游戏开始',
+  SHERIFF_RUNNING_FOR: '上警阶段',
+  SHERIFF_VOTE: '警长投票',
+  SHERIFF_BADGE_TRANSFER: '警徽传递',
   NIGHT_START: '天黑请闭眼',
+  CUPID_LINK: '丘比特请睁眼',
+  GUARD_PROTECT: '守卫请睁眼',
   WEREWOLF_KILL: '狼人请睁眼',
   SEER_CHECK: '预言家请睁眼',
   WITCH_ACTION: '女巫请睁眼',
@@ -34,6 +41,8 @@ export const PHASE_NAMES_ZH: Record<Phase, string> = {
 export function isNightPhase(phase: Phase): boolean {
   return (
     phase === 'NIGHT_START' ||
+    phase === 'CUPID_LINK' ||
+    phase === 'GUARD_PROTECT' ||
     phase === 'WEREWOLF_KILL' ||
     phase === 'SEER_CHECK' ||
     phase === 'WITCH_ACTION' ||
@@ -48,6 +57,9 @@ export function isDayPhase(phase: Phase): boolean {
     phase === 'DAY_DISCUSSION' ||
     phase === 'DAY_VOTE' ||
     phase === 'EXECUTION' ||
-    phase === 'HUNTER_SHOOT_DAY'
+    phase === 'HUNTER_SHOOT_DAY' ||
+    phase === 'SHERIFF_RUNNING_FOR' ||
+    phase === 'SHERIFF_VOTE' ||
+    phase === 'SHERIFF_BADGE_TRANSFER'
   );
 }

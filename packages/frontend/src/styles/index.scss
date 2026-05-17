@@ -1,8 +1,398 @@
-/* Custom dark game theme overrides */
-body {
-  background: linear-gradient(135deg, #0f1115 0%, #1a1d24 100%);
+/* ================================================
+   Tabletop / card-game theme overrides
+   ================================================ */
+
+/* ---------- Reusable card / paper surface ---------- */
+.card-paper {
+  position: relative;
+  background:
+    linear-gradient(160deg, var(--wfk-card-paper-1) 0%, var(--wfk-card-paper-2) 100%);
+  border: 1px solid var(--wfk-card-edge);
+  border-radius: 10px;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.45),
+    0 6px 14px rgba(0, 0, 0, 0.45),
+    0 1px 3px rgba(0, 0, 0, 0.3);
+  overflow: hidden;
 }
 
-.arco-btn-primary {
-  background: linear-gradient(135deg, #4a5cff 0%, #6b7cff 100%);
+.card-paper::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: var(--wfk-noise-url);
+  opacity: 0.07;
+  pointer-events: none;
+  mix-blend-mode: overlay;
+}
+
+/* ---------- Gilt L-bracket corners (apply on element with relative pos) ---------- */
+.gilt-corners::before,
+.gilt-corners::after {
+  content: '';
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  border-color: var(--wfk-gold-1);
+  border-style: solid;
+  pointer-events: none;
+  z-index: 2;
+  opacity: 0.85;
+}
+
+.gilt-corners::before {
+  top: 4px;
+  left: 4px;
+  border-width: 1px 0 0 1px;
+}
+
+.gilt-corners::after {
+  bottom: 4px;
+  right: 4px;
+  border-width: 0 1px 1px 0;
+}
+
+/* ---------- Brass plate (header bar) ---------- */
+.brass-plate {
+  background:
+    linear-gradient(180deg,
+      #3a2f15 0%,
+      #5a4a22 45%,
+      #3a2f15 100%);
+  color: var(--wfk-gold-2);
+  font-family: var(--wfk-font-display);
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  font-size: 12px;
+  padding: 9px 14px;
+  border-top: 1px solid rgba(240, 216, 134, 0.35);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.55);
+  box-shadow:
+    inset 0 1px 0 rgba(240, 216, 134, 0.25),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.45);
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.55);
+  position: relative;
+}
+
+.brass-plate::after {
+  /* faint horizontal scribed line under the text */
+  content: '';
+  position: absolute;
+  left: 14px;
+  right: 14px;
+  bottom: 3px;
+  height: 1px;
+  background: linear-gradient(90deg,
+    transparent,
+    rgba(240, 216, 134, 0.35) 30%,
+    rgba(240, 216, 134, 0.35) 70%,
+    transparent);
+}
+
+/* ---------- Wax seal (small role/title badge) ---------- */
+.wax-seal {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(circle at 35% 30%, #c2342f 0%, #6e1414 70%, #3a0808 100%);
+  color: var(--wfk-gold-2);
+  font-family: var(--wfk-font-display);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  padding: 3px 10px;
+  border-radius: 999px;
+  box-shadow:
+    inset 0 1px 1px rgba(255, 200, 180, 0.35),
+    inset 0 -2px 3px rgba(0, 0, 0, 0.55),
+    0 1px 2px rgba(0, 0, 0, 0.55);
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.6);
+}
+
+.wax-seal--village {
+  background: radial-gradient(circle at 35% 30%, #d5ab4c 0%, #7e5a16 70%, #3a2808 100%);
+}
+
+/* ---------- Double gilt rule ---------- */
+.gilt-rule {
+  height: 1px;
+  border: none;
+  background: linear-gradient(90deg,
+    transparent,
+    var(--wfk-gold-1) 15%,
+    var(--wfk-gold-1) 85%,
+    transparent);
+  margin: 8px 0;
+  position: relative;
+}
+
+.gilt-rule::after {
+  content: '';
+  display: block;
+  height: 1px;
+  margin-top: 2px;
+  background: linear-gradient(90deg,
+    transparent,
+    rgba(212, 175, 55, 0.4) 15%,
+    rgba(212, 175, 55, 0.4) 85%,
+    transparent);
+}
+
+/* ================================================
+   Arco Design Vue overrides (dark theme augment)
+   ================================================ */
+
+/* ---- Primary button: gilt heraldic ----
+   Bumped specificity (.arco-btn.arco-btn-primary…) + !important to defeat
+   Arco's own .arco-btn.arco-btn-primary.arco-btn-status-normal rules. */
+.arco-btn.arco-btn-primary,
+.arco-btn.arco-btn-primary.arco-btn-status-normal {
+  background:
+    linear-gradient(180deg,
+      #fde9b3 0%,
+      var(--wfk-gold-2) 45%,
+      #e0bf52 100%) !important;
+  color: #1a0f00 !important;
+  font-weight: 800 !important;
+  letter-spacing: 0.05em;
+  border: 1px solid var(--wfk-gold-deep) !important;
+  text-shadow:
+    0 1px 0 rgba(255, 248, 215, 0.85),
+    0 -1px 0 rgba(120, 80, 0, 0.25) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 250, 220, 0.85),
+    inset 0 -2px 1px rgba(180, 130, 20, 0.35),
+    inset 0 -1px 0 rgba(80, 50, 0, 0.45),
+    0 2px 4px rgba(0, 0, 0, 0.45) !important;
+}
+
+.arco-btn.arco-btn-primary:hover:not(.arco-btn-disabled),
+.arco-btn.arco-btn-primary.arco-btn-status-normal:hover:not(.arco-btn-disabled) {
+  background:
+    linear-gradient(180deg,
+      #fff2c8 0%,
+      #f8dc88 50%,
+      #e6c558 100%) !important;
+  color: #1a0f00 !important;
+  border-color: var(--wfk-gold-1) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 253, 230, 0.95),
+    inset 0 -1px 0 rgba(80, 50, 0, 0.4),
+    0 4px 12px rgba(240, 216, 134, 0.45) !important;
+}
+
+.arco-btn.arco-btn-primary:active:not(.arco-btn-disabled) {
+  transform: translateY(1px);
+  box-shadow:
+    inset 0 2px 4px rgba(60, 40, 0, 0.5),
+    0 1px 2px rgba(0, 0, 0, 0.4) !important;
+}
+
+.arco-btn.arco-btn-primary.arco-btn-disabled,
+.arco-btn.arco-btn-primary[disabled] {
+  background: linear-gradient(180deg, #4a432a 0%, #2a2510 100%) !important;
+  color: rgba(240, 216, 134, 0.45) !important;
+  border-color: rgba(212, 175, 55, 0.2) !important;
+  text-shadow: none !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05) !important;
+}
+
+/* ---- Default / secondary button: wooden ---- */
+.arco-btn.arco-btn-secondary,
+.arco-btn.arco-btn-secondary.arco-btn-status-normal,
+.arco-btn.arco-btn-outline,
+.arco-btn.arco-btn-outline.arco-btn-status-normal {
+  background:
+    linear-gradient(180deg, #2d2310 0%, #1a1208 100%) !important;
+  border: 1px solid rgba(212, 175, 55, 0.28) !important;
+  color: var(--wfk-gold-2) !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.04em;
+  box-shadow:
+    inset 0 1px 0 rgba(212, 175, 55, 0.15),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.5),
+    0 2px 4px rgba(0, 0, 0, 0.4) !important;
+}
+
+.arco-btn.arco-btn-secondary:hover:not(.arco-btn-disabled),
+.arco-btn.arco-btn-outline:hover:not(.arco-btn-disabled) {
+  background:
+    linear-gradient(180deg, #3a2e15 0%, #221908 100%) !important;
+  border-color: rgba(212, 175, 55, 0.55) !important;
+  color: var(--wfk-gold-2) !important;
+}
+
+.arco-btn.arco-btn-secondary:active:not(.arco-btn-disabled),
+.arco-btn.arco-btn-outline:active:not(.arco-btn-disabled) {
+  transform: translateY(1px);
+}
+
+/* ---- Status danger ---- */
+.arco-btn.arco-btn-status-danger {
+  background: linear-gradient(180deg, #c2342f 0%, #6e1414 100%) !important;
+  border-color: #3a0808 !important;
+  color: #ffd9c9 !important;
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.5) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 200, 180, 0.35),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.55),
+    0 2px 4px rgba(0, 0, 0, 0.4) !important;
+}
+
+.arco-btn.arco-btn-status-danger:hover:not(.arco-btn-disabled) {
+  background: linear-gradient(180deg, #d84540 0%, #871818 100%) !important;
+}
+
+/* ---- Inputs / selects / textarea: inset engraved ---- */
+.arco-input-wrapper,
+.arco-select-view,
+.arco-textarea-wrapper {
+  background: linear-gradient(180deg, #11141c 0%, #0a0c12 100%) !important;
+  border: 1px solid rgba(212, 175, 55, 0.22) !important;
+  border-radius: 6px !important;
+  box-shadow:
+    inset 0 1px 2px rgba(0, 0, 0, 0.65),
+    inset 0 -1px 0 rgba(212, 175, 55, 0.08) !important;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.arco-input-wrapper:hover,
+.arco-select-view:hover,
+.arco-textarea-wrapper:hover {
+  border-color: rgba(212, 175, 55, 0.42) !important;
+}
+
+.arco-input-wrapper.arco-input-focus,
+.arco-select-view.arco-select-view-focus,
+.arco-textarea-wrapper.arco-textarea-focus {
+  border-color: var(--wfk-gold-1) !important;
+  box-shadow:
+    inset 0 1px 2px rgba(0, 0, 0, 0.65),
+    0 0 0 2px rgba(212, 175, 55, 0.18) !important;
+}
+
+.arco-input,
+.arco-select-view-input,
+.arco-textarea {
+  color: #e8e2c8 !important;
+  font-family: var(--wfk-font-body);
+  background: transparent !important;
+}
+
+.arco-input::placeholder,
+.arco-textarea::placeholder,
+.arco-select-view-input::placeholder {
+  color: rgba(212, 175, 55, 0.35) !important;
+}
+
+/* Select dropdown */
+.arco-select-dropdown,
+.arco-trigger-menu {
+  background: linear-gradient(180deg, var(--wfk-card-paper-1) 0%, var(--wfk-card-paper-2) 100%) !important;
+  border: 1px solid var(--wfk-card-edge-strong) !important;
+  box-shadow:
+    0 8px 24px rgba(0, 0, 0, 0.6),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05) !important;
+}
+
+.arco-select-option,
+.arco-trigger-menu-item {
+  color: #e8e2c8 !important;
+}
+
+.arco-select-option-selected,
+.arco-select-option:hover,
+.arco-trigger-menu-item:hover {
+  background: rgba(212, 175, 55, 0.12) !important;
+  color: var(--wfk-gold-2) !important;
+}
+
+/* ---- Checkbox ---- */
+.arco-checkbox-icon {
+  background: linear-gradient(180deg, #11141c 0%, #0a0c12 100%) !important;
+  border: 1px solid rgba(212, 175, 55, 0.42) !important;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.6) !important;
+}
+
+.arco-checkbox-checked .arco-checkbox-icon {
+  background:
+    linear-gradient(180deg, var(--wfk-gold-2) 0%, var(--wfk-gold-1) 60%, var(--wfk-gold-deep) 100%) !important;
+  border-color: var(--wfk-gold-deep) !important;
+}
+
+.arco-checkbox-checked .arco-checkbox-icon-check {
+  color: #2a1c00 !important;
+}
+
+.arco-checkbox-text {
+  color: var(--wfk-gold-2) !important;
+  letter-spacing: 0.05em;
+  font-size: 13px;
+}
+
+/* ---- Alert: scroll-like ---- */
+.arco-alert {
+  background: linear-gradient(180deg, rgba(42, 37, 21, 0.85), rgba(26, 22, 9, 0.85)) !important;
+  border: 1px solid rgba(212, 175, 55, 0.35) !important;
+  border-left: 3px solid var(--wfk-gold-1) !important;
+  border-radius: 6px !important;
+  box-shadow:
+    inset 0 1px 0 rgba(212, 175, 55, 0.18),
+    0 2px 6px rgba(0, 0, 0, 0.4) !important;
+}
+
+.arco-alert-info {
+  border-left-color: var(--wfk-moon-glow) !important;
+}
+
+.arco-alert-warning {
+  border-left-color: var(--wfk-sun-glow) !important;
+}
+
+.arco-alert-error {
+  border-left-color: var(--wfk-wolf-eye) !important;
+}
+
+.arco-alert-content-title,
+.arco-alert-content {
+  color: #e8e2c8 !important;
+}
+
+/* ---- Form item label ---- */
+.arco-form-item-label {
+  color: var(--wfk-gold-2) !important;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-size: 12px !important;
+  font-weight: 700 !important;
+}
+
+.arco-form-item-help {
+  color: rgba(232, 226, 200, 0.55) !important;
+  font-size: 12px;
+}
+
+/* ---- Message ---- */
+.arco-message {
+  background: linear-gradient(180deg, var(--wfk-card-paper-1) 0%, var(--wfk-card-paper-2) 100%) !important;
+  border: 1px solid var(--wfk-card-edge-strong) !important;
+  color: var(--wfk-gold-2) !important;
+}
+
+/* ---- Generic scrollbar (subtle gilt) ---- */
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+*::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.25);
+}
+*::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, rgba(212, 175, 55, 0.35), rgba(138, 106, 20, 0.35));
+  border-radius: 4px;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, var(--wfk-gold-1), var(--wfk-gold-deep));
 }

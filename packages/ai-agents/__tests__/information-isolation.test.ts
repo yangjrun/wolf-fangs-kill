@@ -4,7 +4,7 @@ import { buildSystemPrompt } from '../src/prompts/system.js';
 import { buildUserMessage } from '../src/prompts/user-message.js';
 import { getAllowedTools, getInstruction } from '../src/tool-router.js';
 import { createGame, applyAction, progress } from '@wfk/engine';
-import { PERSONAS } from '@wfk/shared';
+import { DIFFICULTY_TEMPERATURES, PERSONAS } from '@wfk/shared';
 import type { GameState, Player } from '@wfk/shared';
 
 const SEED = 'iso-test-001';
@@ -190,5 +190,73 @@ describe('Tool router', () => {
 
     expect(instruction).toContain('werewolf_kill');
     expect(instruction).toContain('狼队友');  // mentions teammate rule
+  });
+});
+
+describe('Difficulty levels', () => {
+  it('exposes distinct temperatures for each difficulty', () => {
+    expect(DIFFICULTY_TEMPERATURES.easy).toBeGreaterThan(DIFFICULTY_TEMPERATURES.normal);
+    expect(DIFFICULTY_TEMPERATURES.normal).toBeGreaterThan(DIFFICULTY_TEMPERATURES.hard);
+  });
+
+  it('normal difficulty shows werewolf teammates by id (default behavior)', () => {
+    const state = createGame({ seed: SEED });
+    const wolf = getRolePlayer(state, 'werewolf');
+    const info = buildPrivateInfo(state, wolf, 'normal');
+    const teammates = state.players.filter(
+      (p) => p.role === 'werewolf' && p.id !== wolf.id,
+    );
+    // Default mode exposes every alive teammate's id directly.
+    for (const t of teammates.filter((tt) => tt.alive)) {
+      expect(info).toContain(t.id);
+    }
+  });
+
+  it('hard difficulty obscures werewolf teammate ids (sum-of-seats hint instead)', () => {
+    const state = createGame({ seed: SEED });
+    const wolf = getRolePlayer(state, 'werewolf');
+    const info = buildPrivateInfo(state, wolf, 'hard');
+    const aliveTeammates = state.players.filter(
+      (p) => p.role === 'werewolf' && p.id !== wolf.id && p.alive,
+    );
+    if (aliveTeammates.length > 0) {
+      // Hard mode replaces explicit ids with a sum-of-seats hint.
+      expect(info).toContain('座位号之和');
+      for (const t of aliveTeammates) {
+        // The structural hint replaces direct id mention.
+        // (id may still appear if dead teammates list is non-empty — but we
+        // restricted to alive ones, so they should NOT show here.)
+        const aliveLinePattern = new RegExp(`你的狼队友（存活）：[^\\n]*${t.id}`);
+        expect(info).not.toMatch(aliveLinePattern);
+      }
+    }
+  });
+
+  it('hard difficulty system prompt includes difficulty suffix', () => {
+    const state = createGame({ seed: SEED });
+    const wolf = getRolePlayer(state, 'werewolf');
+    const prompt = buildSystemPrompt({
+      persona: PERSONAS[0]!,
+      role: wolf.role,
+      playerId: wolf.id,
+      seat: wolf.seat,
+      difficulty: 'hard',
+    });
+    expect(prompt).toContain('Hard');
+    expect(prompt).toMatch(/长线博弈|高水平/);
+  });
+
+  it('easy difficulty system prompt includes easy hints', () => {
+    const state = createGame({ seed: SEED });
+    const wolf = getRolePlayer(state, 'werewolf');
+    const prompt = buildSystemPrompt({
+      persona: PERSONAS[0]!,
+      role: wolf.role,
+      playerId: wolf.id,
+      seat: wolf.seat,
+      difficulty: 'easy',
+    });
+    expect(prompt).toContain('Easy');
+    expect(prompt).toMatch(/新手|直白/);
   });
 });

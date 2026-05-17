@@ -1,5 +1,6 @@
 import { useGameStore } from "@/stores/game";
 import { useSettingsStore } from "@/stores/settings";
+import { narrator } from "@/services/narrator";
 import {
   RNG,
   applyAction,
@@ -9,13 +10,15 @@ import {
   progress,
 } from "@wfk/engine";
 import { Agent, FlowToken, LLMClient, Orchestrator } from "@wfk/ai-agents";
-import { PERSONAS } from "@wfk/shared";
-import type { PendingAction, PlayerAction } from "@wfk/shared";
+import { DEFAULT_DIFFICULTY, PERSONAS, narrationForPhase } from "@wfk/shared";
+import type { Difficulty, GameEvent, PendingAction, PlayerAction } from "@wfk/shared";
 
 interface StartOptions {
   seed?: string;
   humanPlayerId?: string;
   mode?: "demo" | "ai";
+  boardId?: string;
+  difficulty?: Difficulty;
   stepDelayMs?: number;
   onAIDecision?: (info: {
     playerId: string;
@@ -42,9 +45,19 @@ export function useGameLoop() {
     gameStore.reset();
     gameStore.setError(null);
 
+    // Configure narrator with current settings
+    narrator.configure({
+      enabled: settings.narratorEnabled,
+      rate: settings.narratorRate,
+      voiceName: settings.narratorVoiceName || undefined,
+    });
+    narrator.stop();
+
     let state = createGame({
       seed,
       ...(opts.humanPlayerId ? { humanPlayerId: opts.humanPlayerId } : {}),
+      ...(opts.boardId ? { boardId: opts.boardId } : {}),
+      difficulty: opts.difficulty ?? DEFAULT_DIFFICULTY,
       model: settings.model,
     });
     gameStore.setState(state);
@@ -55,6 +68,7 @@ export function useGameLoop() {
             state,
             token,
             settings,
+            difficulty: opts.difficulty ?? DEFAULT_DIFFICULTY,
             onAIDecision: opts.onAIDecision,
           })
         : null;
@@ -70,6 +84,7 @@ export function useGameLoop() {
         state = next;
         gameStore.pushEvents(events);
         gameStore.setState(state);
+        narrateEvents(events);
 
         if (stepDelayMs > 0) await sleep(stepDelayMs);
         if (state.phase === "GAME_END" || pending.length === 0) break;
@@ -111,6 +126,7 @@ export function useGameLoop() {
       gameStore.setError(msg);
     } finally {
       if (token === flowToken) gameStore.isRunning = false;
+      narrator.stop();
     }
   }
 
@@ -125,12 +141,24 @@ export function useGameLoop() {
     }
     gameStore.pushEvents(events);
     gameStore.setState(next);
+    narrateEvents(events);
     return next;
   }
 
   function stop(): void {
     if (flowToken) flowToken.invalidate();
     gameStore.isRunning = false;
+    narrator.stop();
+  }
+
+  function narrateEvents(events: GameEvent[]): void {
+    if (!settings.narratorEnabled) return;
+    for (const e of events) {
+      if (e.type === 'PHASE_TRANSITION') {
+        const line = narrationForPhase(e.to as Parameters<typeof narrationForPhase>[0]);
+        if (line) narrator.speak(line);
+      }
+    }
   }
 
   return { start, stop };
@@ -164,6 +192,7 @@ function createOrchestrator(params: {
   state: ReturnType<typeof createGame>;
   token: FlowToken;
   settings: ReturnType<typeof useSettingsStore>;
+  difficulty: Difficulty;
   onAIDecision?: StartOptions["onAIDecision"];
 }): Orchestrator {
   const client = new LLMClient({
@@ -182,7 +211,13 @@ function createOrchestrator(params: {
     const persona = shuffled[i % shuffled.length]!;
     agents.set(
       player.id,
-      new Agent({ player, persona, client, model: params.settings.model }),
+      new Agent({
+        player,
+        persona,
+        client,
+        model: params.settings.model,
+        difficulty: params.difficulty,
+      }),
     );
   }
 
@@ -241,6 +276,67 @@ function demoAction(
       playerId: actor.id,
       targetId: null,
       reasoning: "演示模式：猎人默认不开枪。",
+    };
+  }
+
+  if (pending.allowedActionTypes.includes("GUARD_PROTECT")) {
+    const last = state.guardState.lastGuarded;
+    const candidate = alive.find((p) => p.id !== last) ?? alive[0]!;
+    return {
+      type: "GUARD_PROTECT",
+      playerId: actor.id,
+      targetId: candidate.id,
+      reasoning: "演示模式：守卫守第一个可守目标。",
+    };
+  }
+
+  if (pending.allowedActionTypes.includes("CUPID_LINK")) {
+    const [t1, t2] = alive.filter((p) => p.id !== actor.id).slice(0, 2);
+    return {
+      type: "CUPID_LINK",
+      playerId: actor.id,
+      target1Id: (t1 ?? alive[0]!).id,
+      target2Id: (t2 ?? alive[1] ?? alive[0]!).id,
+      reasoning: "演示模式：丘比特连接前两个非自己玩家。",
+    };
+  }
+
+  if (pending.allowedActionTypes.includes("RUN_FOR_SHERIFF")) {
+    // Bot默认不上警以缩短演示；若想总有人上警可在这里改为 RUN
+    return {
+      type: "SKIP_SHERIFF",
+      playerId: actor.id,
+      reasoning: "演示模式：默认放弃参选警长。",
+    };
+  }
+
+  if (pending.allowedActionTypes.includes("SHERIFF_VOTE")) {
+    const election = state.sheriffElection;
+    const runners = election?.runners.filter((id) =>
+      state.players.find((p) => p.id === id)?.alive,
+    ) ?? [];
+    return {
+      type: "SHERIFF_VOTE",
+      playerId: actor.id,
+      targetId: runners[0] ?? "abstain",
+      reasoning: "演示模式：投第一位上警玩家。",
+    };
+  }
+
+  if (pending.allowedActionTypes.includes("TRANSFER_BADGE")) {
+    const candidate = alive.find((p) => p.id !== actor.id);
+    if (candidate) {
+      return {
+        type: "TRANSFER_BADGE",
+        playerId: actor.id,
+        targetId: candidate.id,
+        reasoning: "演示模式：警徽传给第一位存活玩家。",
+      };
+    }
+    return {
+      type: "DESTROY_BADGE",
+      playerId: actor.id,
+      reasoning: "演示模式：无人可传，撕毁警徽。",
     };
   }
 

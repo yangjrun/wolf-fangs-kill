@@ -22,8 +22,9 @@ export function validateAction(state: GameState, action: PlayerAction): Validati
   if (!actor) {
     return new ValidationError(`Unknown player ${action.playerId}`, 'UNKNOWN_PLAYER');
   }
-  // HUNTER_SHOOT is the only action a dead player can perform (they died this phase).
-  if (!actor.alive && action.type !== 'HUNTER_SHOOT') {
+  // Dead players may only perform these "final-word" actions before they exit.
+  const deadAllowedActions: PlayerAction['type'][] = ['HUNTER_SHOOT', 'TRANSFER_BADGE', 'DESTROY_BADGE'];
+  if (!actor.alive && !deadAllowedActions.includes(action.type)) {
     return new ValidationError(`Player ${action.playerId} is dead`, 'DEAD_PLAYER');
   }
 
@@ -149,6 +150,181 @@ export function validateAction(state: GameState, action: PlayerAction): Validati
       return null;
     }
 
+    case 'GUARD_PROTECT': {
+      if (state.phase !== 'GUARD_PROTECT') {
+        return new ValidationError('Not in guard protect phase', 'WRONG_PHASE');
+      }
+      if (actor.role !== 'guard') {
+        return new ValidationError('Not the guard', 'WRONG_ROLE');
+      }
+      const target = findTarget(action.targetId);
+      if (!target) {
+        return new ValidationError(`Unknown target ${action.targetId}`, 'UNKNOWN_TARGET');
+      }
+      if (!target.alive) {
+        return new ValidationError(`Target ${action.targetId} is dead`, 'DEAD_TARGET');
+      }
+      if (state.guardState.lastGuarded && action.targetId === state.guardState.lastGuarded) {
+        return new ValidationError(
+          `Cannot guard the same target two nights in a row (${state.guardState.lastGuarded})`,
+          'GUARD_CONSECUTIVE',
+        );
+      }
+      return null;
+    }
+
+    case 'KNIGHT_DUEL': {
+      if (state.phase !== 'DAY_DISCUSSION') {
+        return new ValidationError('Knight may only duel during day discussion', 'WRONG_PHASE');
+      }
+      if (actor.role !== 'knight') {
+        return new ValidationError('Not the knight', 'WRONG_ROLE');
+      }
+      if (actor.revealed) {
+        return new ValidationError('Knight already used their duel ability', 'KNIGHT_ALREADY_DUELED');
+      }
+      // Only the current speaker may act in DAY_DISCUSSION.
+      const idx = state.currentDay.speeches.length;
+      const expected = state.currentDay.speechOrder[idx];
+      if (expected !== action.playerId) {
+        return new ValidationError(
+          `It is not your turn to act (current speaker is ${expected})`,
+          'NOT_YOUR_TURN',
+        );
+      }
+      if (action.targetId === action.playerId) {
+        return new ValidationError('Cannot duel yourself', 'DUEL_SELF');
+      }
+      const target = findTarget(action.targetId);
+      if (!target) {
+        return new ValidationError(`Unknown target ${action.targetId}`, 'UNKNOWN_TARGET');
+      }
+      if (!target.alive) {
+        return new ValidationError(`Target ${action.targetId} is dead`, 'DEAD_TARGET');
+      }
+      return null;
+    }
+
+    case 'CUPID_LINK': {
+      if (state.phase !== 'CUPID_LINK') {
+        return new ValidationError('Cupid may only link on night 1', 'WRONG_PHASE');
+      }
+      if (actor.role !== 'cupid') {
+        return new ValidationError('Not the cupid', 'WRONG_ROLE');
+      }
+      if (state.day !== 1) {
+        return new ValidationError('Cupid link only on night 1', 'CUPID_TOO_LATE');
+      }
+      if (state.lovers) {
+        return new ValidationError('Lovers already linked', 'LOVERS_ALREADY_SET');
+      }
+      if (action.target1Id === action.target2Id) {
+        return new ValidationError('Cannot link a player with themselves', 'CUPID_DUPLICATE_TARGET');
+      }
+      const t1 = findTarget(action.target1Id);
+      const t2 = findTarget(action.target2Id);
+      if (!t1) return new ValidationError(`Unknown target ${action.target1Id}`, 'UNKNOWN_TARGET');
+      if (!t2) return new ValidationError(`Unknown target ${action.target2Id}`, 'UNKNOWN_TARGET');
+      if (!t1.alive) return new ValidationError(`Target ${action.target1Id} is dead`, 'DEAD_TARGET');
+      if (!t2.alive) return new ValidationError(`Target ${action.target2Id} is dead`, 'DEAD_TARGET');
+      return null;
+    }
+
+    case 'RUN_FOR_SHERIFF': {
+      if (state.phase !== 'SHERIFF_RUNNING_FOR') {
+        return new ValidationError('Not in sheriff election', 'WRONG_PHASE');
+      }
+      const election = state.sheriffElection;
+      if (!election) {
+        return new ValidationError('No active sheriff election', 'NO_ELECTION');
+      }
+      if (action.playerId in election.decisions) {
+        return new ValidationError('Already decided in this election', 'ELECTION_ALREADY_DECIDED');
+      }
+      if (action.content.length === 0) {
+        return new ValidationError('Campaign speech cannot be empty', 'EMPTY_SPEECH');
+      }
+      return null;
+    }
+
+    case 'SKIP_SHERIFF': {
+      if (state.phase !== 'SHERIFF_RUNNING_FOR') {
+        return new ValidationError('Not in sheriff election', 'WRONG_PHASE');
+      }
+      const election = state.sheriffElection;
+      if (!election) {
+        return new ValidationError('No active sheriff election', 'NO_ELECTION');
+      }
+      if (action.playerId in election.decisions) {
+        return new ValidationError('Already decided in this election', 'ELECTION_ALREADY_DECIDED');
+      }
+      return null;
+    }
+
+    case 'SHERIFF_VOTE': {
+      if (state.phase !== 'SHERIFF_VOTE') {
+        return new ValidationError('Not in sheriff vote phase', 'WRONG_PHASE');
+      }
+      const election = state.sheriffElection;
+      if (!election) {
+        return new ValidationError('No active sheriff election', 'NO_ELECTION');
+      }
+      if (election.runners.includes(action.playerId)) {
+        return new ValidationError('Runners cannot vote in their own election', 'RUNNER_CANNOT_VOTE');
+      }
+      if (action.targetId !== 'abstain') {
+        if (!election.runners.includes(action.targetId)) {
+          return new ValidationError(
+            `Target ${action.targetId} is not a runner`,
+            'NOT_A_RUNNER',
+          );
+        }
+        const target = findTarget(action.targetId);
+        if (!target || !target.alive) {
+          return new ValidationError(`Target ${action.targetId} is invalid`, 'DEAD_TARGET');
+        }
+      }
+      return null;
+    }
+
+    case 'TRANSFER_BADGE': {
+      if (state.phase !== 'SHERIFF_BADGE_TRANSFER') {
+        return new ValidationError('Not in badge transfer phase', 'WRONG_PHASE');
+      }
+      const pending = state.pendingBadgeTransfer;
+      if (!pending || pending.sheriffId !== action.playerId) {
+        return new ValidationError(
+          `Only the dying sheriff can transfer the badge (expected ${pending?.sheriffId ?? 'none'})`,
+          'NOT_DYING_SHERIFF',
+        );
+      }
+      if (action.targetId === action.playerId) {
+        return new ValidationError('Cannot transfer badge to self', 'TRANSFER_SELF');
+      }
+      const target = findTarget(action.targetId);
+      if (!target) {
+        return new ValidationError(`Unknown target ${action.targetId}`, 'UNKNOWN_TARGET');
+      }
+      if (!target.alive) {
+        return new ValidationError(`Target ${action.targetId} is dead`, 'DEAD_TARGET');
+      }
+      return null;
+    }
+
+    case 'DESTROY_BADGE': {
+      if (state.phase !== 'SHERIFF_BADGE_TRANSFER') {
+        return new ValidationError('Not in badge transfer phase', 'WRONG_PHASE');
+      }
+      const pending = state.pendingBadgeTransfer;
+      if (!pending || pending.sheriffId !== action.playerId) {
+        return new ValidationError(
+          `Only the dying sheriff can destroy the badge`,
+          'NOT_DYING_SHERIFF',
+        );
+      }
+      return null;
+    }
+
     case 'SPEAK': {
       if (state.phase !== 'DAY_DISCUSSION') {
         return new ValidationError('Not in day discussion phase', 'WRONG_PHASE');
@@ -162,6 +338,12 @@ export function validateAction(state: GameState, action: PlayerAction): Validati
     case 'VOTE': {
       if (state.phase !== 'DAY_VOTE') {
         return new ValidationError('Not in day vote phase', 'WRONG_PHASE');
+      }
+      if (!actor.canVote) {
+        return new ValidationError(
+          `Player ${action.playerId} has lost voting rights (revealed idiot)`,
+          'NO_VOTE_RIGHTS',
+        );
       }
       if (action.targetId !== 'abstain') {
         const target = findTarget(action.targetId);

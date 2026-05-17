@@ -8,7 +8,15 @@ import SeatRing from '@/components/game/SeatRing.vue';
 import PhaseIndicator from '@/components/game/PhaseIndicator.vue';
 import PublicLog from '@/components/game/PublicLog.vue';
 import ActionPanel from '@/components/game/ActionPanel.vue';
-import { PERSONAS } from '@wfk/shared';
+import {
+  BOARDS,
+  DEFAULT_BOARD_ID,
+  DEFAULT_DIFFICULTY,
+  DIFFICULTY_NAMES_ZH,
+  PERSONAS,
+  isNightPhase,
+} from '@wfk/shared';
+import type { Difficulty } from '@wfk/shared';
 import { RNG } from '@wfk/engine';
 
 const router = useRouter();
@@ -19,6 +27,8 @@ const { start, stop } = useGameLoop();
 const seedInput = ref(`seed-${Date.now()}`);
 const mode = ref<'demo' | 'ai'>('demo');
 const humanPlayerId = ref<string>('');
+const boardId = ref<string>(DEFAULT_BOARD_ID);
+const difficulty = ref<Difficulty>(DEFAULT_DIFFICULTY);
 const godView = ref(false);
 const decisions = ref<Array<{ playerId: string; reasoning: string; ts: number }>>([]);
 
@@ -27,10 +37,24 @@ const modeOptions = [
   { label: 'Claude AI 模式', value: 'ai' },
 ];
 
-const humanOptions = [
+const difficultyOptions = (Object.keys(DIFFICULTY_NAMES_ZH) as Difficulty[]).map((d) => ({
+  label: `难度：${DIFFICULTY_NAMES_ZH[d]}`,
+  value: d,
+}));
+
+const boardOptions = computed(() =>
+  Object.values(BOARDS).map((b) => ({ label: b.name, value: b.id })),
+);
+
+const selectedBoard = computed(() => BOARDS[boardId.value] ?? BOARDS[DEFAULT_BOARD_ID]!);
+
+const humanOptions = computed(() => [
   { label: '观战模式', value: '' },
-  ...Array.from({ length: 9 }, (_, i) => ({ label: `我坐 ${i + 1} 号位`, value: `player_${i + 1}` })),
-];
+  ...Array.from({ length: selectedBoard.value.totalPlayers }, (_, i) => ({
+    label: `我坐 ${i + 1} 号位`,
+    value: `player_${i + 1}`,
+  })),
+]);
 
 // Pre-compute persona name for each player based on seed (matches useGameLoop)
 const personaNames = computed<Record<string, string>>(() => {
@@ -46,7 +70,21 @@ const personaNames = computed<Record<string, string>>(() => {
 
 const winnerText = computed(() => {
   if (!gameStore.winner) return '';
-  return gameStore.winner === 'wolves' ? '🐺 狼人胜利' : '👥 好人胜利';
+  if (gameStore.winner === 'wolves') return '🐺 狼人胜利';
+  if (gameStore.winner === 'lovers') return '❤ 情侣胜利';
+  return '👥 好人胜利';
+});
+
+const ringPhaseClass = computed(() => {
+  if (!gameStore.state) return '';
+  return isNightPhase(gameStore.phase) ? 'play__ring--night' : 'play__ring--day';
+});
+
+const nightVisionActive = computed(() => {
+  if (!settings.nightVisionMode) return false;
+  if (!gameStore.state) return false;
+  if (godView.value) return false;
+  return isNightPhase(gameStore.phase);
 });
 
 async function onStart() {
@@ -54,6 +92,8 @@ async function onStart() {
   await start({
     seed: seedInput.value,
     mode: mode.value,
+    boardId: boardId.value,
+    difficulty: difficulty.value,
     ...(humanPlayerId.value ? { humanPlayerId: humanPlayerId.value } : {}),
     stepDelayMs: mode.value === 'demo' ? 180 : 0,
     onAIDecision: ({ playerId, reasoning }) => {
@@ -82,46 +122,63 @@ onUnmounted(() => {
 <template>
   <div class="play">
     <header class="play__header">
-      <a-button @click="router.push('/')">← 返回</a-button>
-      <PhaseIndicator
-        v-if="gameStore.state"
-        :phase="gameStore.phase"
-        :day="gameStore.day"
-      />
-      <div v-else class="play__placeholder">未开始</div>
-      <a-space>
-        <a-select
-          v-model="mode"
-          :options="modeOptions"
-          style="width: 190px"
-          :disabled="gameStore.isRunning"
+      <div class="play__header-left">
+        <a-button @click="router.push('/')">← 返回</a-button>
+        <PhaseIndicator
+          v-if="gameStore.state"
+          :phase="gameStore.phase"
+          :day="gameStore.day"
         />
-        <a-select
-          v-model="humanPlayerId"
-          :options="humanOptions"
-          style="width: 130px"
-          :disabled="gameStore.isRunning"
-        />
-        <a-input
-          v-model="seedInput"
-          placeholder="seed"
-          style="width: 180px"
-          :disabled="gameStore.isRunning"
-        />
-        <a-checkbox v-model="godView">上帝视角</a-checkbox>
-        <a-button
-          v-if="!gameStore.isRunning && !gameStore.isEnded"
-          type="primary"
-          @click="onStart"
-        >
-          开始
-        </a-button>
-        <a-button v-if="gameStore.isRunning" status="danger" @click="onStop">
-          停止
-        </a-button>
-        <a-button v-if="gameStore.isEnded" type="primary" @click="router.push('/replay')">复盘</a-button>
-        <a-button v-if="gameStore.isEnded" @click="onReset">重置</a-button>
-      </a-space>
+        <div v-else class="play__placeholder">未开始</div>
+      </div>
+
+      <div class="play__console">
+        <div class="play__console-inner">
+          <a-select
+            v-model="boardId"
+            :options="boardOptions"
+            style="width: 180px"
+            :disabled="gameStore.isRunning"
+          />
+          <a-select
+            v-model="difficulty"
+            :options="difficultyOptions"
+            style="width: 120px"
+            :disabled="gameStore.isRunning"
+          />
+          <a-select
+            v-model="mode"
+            :options="modeOptions"
+            style="width: 190px"
+            :disabled="gameStore.isRunning"
+          />
+          <a-select
+            v-model="humanPlayerId"
+            :options="humanOptions"
+            style="width: 130px"
+            :disabled="gameStore.isRunning"
+          />
+          <a-input
+            v-model="seedInput"
+            placeholder="seed"
+            style="width: 180px"
+            :disabled="gameStore.isRunning"
+          />
+          <a-checkbox v-model="godView">上帝视角</a-checkbox>
+          <a-button
+            v-if="!gameStore.isRunning && !gameStore.isEnded"
+            type="primary"
+            @click="onStart"
+          >
+            开始
+          </a-button>
+          <a-button v-if="gameStore.isRunning" status="danger" @click="onStop">
+            停止
+          </a-button>
+          <a-button v-if="gameStore.isEnded" type="primary" @click="router.push('/replay')">复盘</a-button>
+          <a-button v-if="gameStore.isEnded" @click="onReset">重置</a-button>
+        </div>
+      </div>
     </header>
 
     <a-alert
@@ -134,30 +191,35 @@ onUnmounted(() => {
     </a-alert>
 
     <main class="play__main">
-      <section class="play__ring">
+      <section :class="['play__ring', ringPhaseClass]">
         <SeatRing
           v-if="gameStore.state"
           :players="gameStore.players"
           :current-actor-id="gameStore.currentActor"
           :god-view="godView"
           :persona-names="personaNames"
+          :lovers="gameStore.state.lovers"
+          :sheriff-id="gameStore.state.sheriff.playerId"
+          :night-vision="nightVisionActive"
+          :human-player-id="humanPlayerId"
         />
         <div v-else class="play__hint">
-          点击右上角"开始"按钮启动一局新游戏
+          <div class="play__hint-icon">🕯</div>
+          <div class="play__hint-text">点击右上角"开始"按钮，召集 9 位玩家入席</div>
         </div>
       </section>
 
       <aside class="play__sidebar">
-        <div class="panel panel--log">
-          <div class="panel__title">公开日志</div>
+        <div class="panel card-paper">
+          <div class="panel__title brass-plate">公开日志</div>
           <PublicLog class="panel__body" />
         </div>
-        <div class="panel panel--action">
-          <div class="panel__title">玩家操作</div>
+        <div class="panel card-paper">
+          <div class="panel__title brass-plate">玩家操作</div>
           <ActionPanel class="panel__body" />
         </div>
-        <div class="panel panel--thoughts">
-          <div class="panel__title">
+        <div class="panel card-paper">
+          <div class="panel__title brass-plate">
             {{ mode === 'demo' ? '演示策略说明' : 'AI 内心独白（实时）' }}
           </div>
           <div class="thoughts panel__body">
@@ -179,8 +241,10 @@ onUnmounted(() => {
       </aside>
     </main>
 
-    <footer v-if="gameStore.isEnded" class="play__end">
+    <footer v-if="gameStore.isEnded" class="play__end card-paper gilt-corners">
+      <div class="play__end-emblem">{{ gameStore.winner === 'wolves' ? '🐺' : '👥' }}</div>
       <div class="play__end-text">{{ winnerText }}</div>
+      <hr class="gilt-rule">
       <div class="play__end-reason">{{ gameStore.endReason }}</div>
     </footer>
   </div>
@@ -199,13 +263,52 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 24px;
+  gap: 18px;
   flex-wrap: wrap;
 }
 
+.play__header-left {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
 .play__placeholder {
-  font-size: 18px;
-  color: var(--color-text-3);
+  font-family: var(--wfk-font-display);
+  font-size: 16px;
+  color: rgba(212, 175, 55, 0.45);
+  font-style: italic;
+  letter-spacing: 0.1em;
+  padding: 12px 18px;
+  border: 1px dashed rgba(212, 175, 55, 0.25);
+  border-radius: 10px;
+}
+
+/* Brass control console */
+.play__console {
+  position: relative;
+  padding: 4px;
+  border-radius: 10px;
+  background:
+    linear-gradient(180deg, #3a2f15 0%, #1a1208 100%);
+  border: 1px solid rgba(212, 175, 55, 0.4);
+  box-shadow:
+    inset 0 1px 0 rgba(240, 216, 134, 0.25),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.6),
+    0 4px 12px rgba(0, 0, 0, 0.55);
+}
+
+.play__console-inner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 6px 10px;
+  background:
+    linear-gradient(180deg, rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.25));
+  border-radius: 7px;
+  border: 1px solid rgba(0, 0, 0, 0.55);
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.45);
 }
 
 .play__main {
@@ -220,37 +323,41 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--color-bg-1);
-  border-radius: 12px;
   padding: 16px;
 }
 
 .play__hint {
-  color: var(--color-text-3);
+  text-align: center;
+  font-family: var(--wfk-font-display);
+  color: rgba(212, 175, 55, 0.55);
+}
+
+.play__hint-icon {
+  font-size: 56px;
+  margin-bottom: 12px;
+  filter: drop-shadow(0 0 16px rgba(255, 184, 119, 0.45));
+}
+
+.play__hint-text {
   font-size: 16px;
+  font-style: italic;
+  letter-spacing: 0.05em;
 }
 
 .play__sidebar {
   display: grid;
   grid-template-rows: 1.4fr 0.9fr 0.7fr;
-  gap: 16px;
+  gap: 14px;
   min-height: 0;
 }
 
 .panel {
   display: flex;
   flex-direction: column;
-  background: var(--color-bg-2);
-  border-radius: 12px;
-  overflow: hidden;
 }
 
 .panel__title {
-  padding: 12px 16px;
-  font-weight: 600;
-  font-size: 14px;
-  background: var(--color-fill-2);
-  border-bottom: 1px solid var(--color-border-2);
+  flex-shrink: 0;
 }
 
 .panel__body {
@@ -260,52 +367,84 @@ onUnmounted(() => {
 }
 
 .thoughts {
-  padding: 8px;
+  padding: 10px;
   display: flex;
   flex-direction: column;
   gap: 8px;
 }
 
 .thought {
-  background: rgba(74, 92, 255, 0.06);
+  position: relative;
+  background:
+    linear-gradient(160deg, rgba(42, 37, 21, 0.7), rgba(26, 22, 9, 0.7));
+  border: 1px solid rgba(212, 175, 55, 0.18);
+  border-left: 3px solid rgba(212, 175, 55, 0.55);
   padding: 8px 12px;
-  border-radius: 6px;
+  border-radius: 4px;
   font-size: 13px;
+  box-shadow:
+    inset 0 1px 0 rgba(212, 175, 55, 0.1),
+    0 1px 2px rgba(0, 0, 0, 0.35);
 }
 
 .thought__head {
-  font-weight: 600;
+  font-family: var(--wfk-font-display);
+  font-weight: 700;
   margin-bottom: 4px;
-  color: #ffd93d;
+  color: var(--wfk-gold-2);
   font-size: 12px;
+  letter-spacing: 0.05em;
 }
 
 .thought__body {
-  color: var(--color-text-2);
-  line-height: 1.5;
+  color: #e8e2c8;
+  line-height: 1.55;
+  font-style: italic;
 }
 
 .thoughts__empty {
-  color: var(--color-text-3);
+  color: rgba(232, 226, 200, 0.45);
   text-align: center;
-  padding: 16px;
+  padding: 20px;
+  font-family: var(--wfk-font-display);
+  font-style: italic;
+  font-size: 13px;
+  letter-spacing: 0.05em;
 }
 
+/* Victory plaque */
 .play__end {
+  position: relative;
   text-align: center;
-  padding: 16px;
-  background: var(--color-bg-2);
-  border-radius: 12px;
+  padding: 20px 24px 22px;
+}
+
+.play__end-emblem {
+  font-size: 42px;
+  line-height: 1;
+  margin-bottom: 6px;
+  filter: drop-shadow(0 0 16px rgba(212, 175, 55, 0.55));
 }
 
 .play__end-text {
-  font-size: 24px;
+  font-family: var(--wfk-font-display);
+  font-size: 28px;
   font-weight: 700;
-  color: #ffd93d;
+  letter-spacing: 0.1em;
+  color: var(--wfk-gold-2);
+  text-shadow:
+    0 1px 0 rgba(0, 0, 0, 0.55),
+    0 0 16px rgba(212, 175, 55, 0.45);
 }
 
 .play__end-reason {
-  color: var(--color-text-2);
+  color: #e8e2c8;
   margin-top: 4px;
+  font-style: italic;
+}
+
+.play__end .gilt-rule {
+  max-width: 280px;
+  margin: 10px auto;
 }
 </style>

@@ -164,13 +164,15 @@ function exportJson(): void {
 
 <template>
   <div class="replay">
-    <header class="replay__header">
-      <a-button @click="router.push('/play')">← 返回游戏</a-button>
-      <div class="replay__title">
-        复盘
-        <span v-if="gameStore.winner" class="replay__result">
-          {{ gameStore.winner === 'wolves' ? '🐺 狼人胜' : '👥 好人胜' }}
-        </span>
+    <header class="replay__header card-paper">
+      <div class="replay__header-left">
+        <a-button @click="router.push('/play')">← 返回游戏</a-button>
+        <div class="replay__title">
+          <span class="replay__title-text">复盘</span>
+          <span v-if="gameStore.winner" class="replay__result">
+            {{ gameStore.winner === 'wolves' ? '🐺 狼人胜' : '👥 好人胜' }}
+          </span>
+        </div>
       </div>
       <a-space>
         <a-select
@@ -189,8 +191,8 @@ function exportJson(): void {
 
     <main v-else class="replay__main">
       <!-- Player roster -->
-      <aside class="replay__roster">
-        <div class="roster__title">玩家列表</div>
+      <aside class="replay__roster card-paper">
+        <div class="roster__title brass-plate">玩家列表</div>
         <div
           v-for="p in players"
           :key="p.id"
@@ -208,7 +210,7 @@ function exportJson(): void {
       </aside>
 
       <!-- Timeline -->
-      <section class="replay__timeline">
+      <section class="replay__timeline card-paper">
         <div
           v-for="{ event, idx } in visibleEvents"
           :key="idx"
@@ -255,83 +257,130 @@ function exportJson(): void {
   justify-content: space-between;
   gap: 16px;
   flex-wrap: wrap;
+  padding: 12px 18px;
+}
+
+.replay__header-left {
+  display: flex;
+  align-items: center;
+  gap: 16px;
 }
 
 .replay__title {
-  font-size: 20px;
-  font-weight: 700;
   display: flex;
   align-items: center;
   gap: 12px;
 }
 
+.replay__title-text {
+  font-family: var(--wfk-font-display);
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: 0.25em;
+  color: var(--wfk-gold-2);
+  text-shadow:
+    0 1px 0 rgba(0, 0, 0, 0.55),
+    0 0 14px rgba(212, 175, 55, 0.4);
+}
+
 .replay__result {
-  font-size: 16px;
-  color: #ffd93d;
+  font-family: var(--wfk-font-display);
+  font-size: 14px;
+  color: var(--wfk-gold-2);
+  letter-spacing: 0.1em;
+  padding: 4px 12px;
+  border-left: 1px solid rgba(212, 175, 55, 0.45);
+  border-right: 1px solid rgba(212, 175, 55, 0.45);
 }
 
 .replay__empty {
-  color: var(--color-text-3);
+  color: rgba(232, 226, 200, 0.45);
   text-align: center;
-  padding: 48px;
+  padding: 64px;
+  font-family: var(--wfk-font-display);
+  font-style: italic;
+  letter-spacing: 0.05em;
 }
 
 .replay__main {
   display: grid;
-  grid-template-columns: 220px 1fr;
+  grid-template-columns: 240px 1fr;
   gap: 16px;
   flex: 1;
   min-height: 0;
 }
 
 .replay__roster {
-  background: var(--color-bg-2);
-  border-radius: 12px;
   overflow-y: auto;
-  padding: 8px;
+  min-height: 0;
+  padding-bottom: 8px;
 }
 
-.roster__title {
-  font-weight: 600;
-  padding: 8px 8px 12px;
-  font-size: 13px;
-  color: var(--color-text-2);
+.replay__roster > .roster__item:first-of-type {
+  margin-top: 8px;
+}
+
+.replay__roster > .roster__item {
+  margin: 0 8px 4px;
 }
 
 .roster__item {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 8px;
+  padding: 8px 10px;
   border-radius: 8px;
   cursor: pointer;
   font-size: 13px;
-  transition: background 0.15s;
+  transition: background 0.15s, box-shadow 0.15s;
+  margin-bottom: 4px;
+  border: 1px solid transparent;
 
-  &:hover { background: var(--color-fill-2); }
-  &--selected { background: rgba(74, 92, 255, 0.15); }
+  &:hover {
+    background: rgba(212, 175, 55, 0.06);
+    border-color: rgba(212, 175, 55, 0.2);
+  }
+  &--selected {
+    background: rgba(212, 175, 55, 0.12);
+    border-color: var(--wfk-gold-1);
+    box-shadow: 0 0 12px rgba(212, 175, 55, 0.25);
+  }
   &--dead { opacity: 0.45; }
 }
 
 .roster__seat {
-  width: 20px;
+  width: 22px;
   text-align: center;
+  font-family: var(--wfk-font-display);
   font-weight: 700;
-  color: var(--color-text-3);
+  font-size: 14px;
+  color: var(--wfk-gold-1);
 }
 
 .roster__name {
   flex: 1;
   font-weight: 600;
+  color: #e8e2c8;
 }
 
 .roster__role {
+  font-family: var(--wfk-font-display);
   font-size: 11px;
-  padding: 2px 6px;
-  border-radius: 4px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  padding: 3px 8px;
+  border-radius: 999px;
 
-  &--wolves { background: rgba(255, 80, 80, 0.2); color: #ff5050; }
-  &--villagers { background: rgba(80, 200, 120, 0.2); color: #50c878; }
+  &--wolves {
+    background: radial-gradient(circle at 35% 30%, #c2342f 0%, #6e1414 70%, #3a0808 100%);
+    color: #ffd9c9;
+    box-shadow: inset 0 -1px 2px rgba(0, 0, 0, 0.55);
+  }
+  &--villagers {
+    background: radial-gradient(circle at 35% 30%, #d5ab4c 0%, #7e5a16 70%, #3a2808 100%);
+    color: #fff4d0;
+    box-shadow: inset 0 -1px 2px rgba(0, 0, 0, 0.55);
+  }
 }
 
 .roster__dead {
@@ -339,76 +388,111 @@ function exportJson(): void {
 }
 
 .replay__timeline {
-  background: var(--color-bg-2);
-  border-radius: 12px;
   overflow-y: auto;
-  padding: 8px 12px;
+  padding: 10px 14px;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 4px;
 }
 
 .timeline-item {
   display: flex;
   align-items: flex-start;
   gap: 10px;
-  padding: 8px 10px;
-  border-radius: 8px;
+  padding: 7px 10px 7px 12px;
+  border-radius: 4px;
   font-size: 13px;
   flex-wrap: wrap;
+  border-left: 3px solid rgba(212, 175, 55, 0.25);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.02), rgba(0, 0, 0, 0.15));
+  transition: background 0.15s;
 
   &--expandable {
     cursor: pointer;
-    &:hover { background: var(--color-fill-2); }
+    &:hover {
+      background: linear-gradient(180deg, rgba(212, 175, 55, 0.08), rgba(0, 0, 0, 0.2));
+      border-left-color: var(--wfk-gold-1);
+    }
   }
 
-  &--expanded { background: var(--color-fill-2); }
+  &--expanded {
+    background: linear-gradient(180deg, rgba(212, 175, 55, 0.1), rgba(0, 0, 0, 0.22));
+    border-left-color: var(--wfk-gold-1);
+  }
 }
 
 .timeline-item__tag {
-  font-size: 11px;
+  font-family: var(--wfk-font-display);
+  font-size: 12px;
   font-weight: 700;
   min-width: 28px;
   padding-top: 1px;
+  letter-spacing: 0.05em;
+  /* color comes from inline :style (tagColor) for event-type tinting */
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.55);
 }
 
 .timeline-item__label {
   flex: 1;
-  line-height: 1.5;
-  color: var(--color-text-1);
+  line-height: 1.55;
+  color: #e8e2c8;
 }
 
 .timeline-item__expand {
   font-size: 10px;
-  color: var(--color-text-3);
+  color: var(--wfk-gold-1);
   padding-top: 2px;
+  opacity: 0.7;
 }
 
 .thought-bubble {
   width: 100%;
   margin-top: 8px;
-  background: rgba(74, 92, 255, 0.08);
-  border-left: 3px solid rgba(74, 92, 255, 0.5);
-  border-radius: 0 8px 8px 0;
-  padding: 10px 14px;
+  position: relative;
+  background:
+    linear-gradient(160deg, rgba(42, 37, 21, 0.85), rgba(26, 22, 9, 0.85));
+  border: 1px solid rgba(212, 175, 55, 0.28);
+  border-left: 3px solid var(--wfk-gold-1);
+  border-radius: 4px;
+  padding: 12px 16px;
+  box-shadow:
+    inset 0 1px 0 rgba(212, 175, 55, 0.12),
+    0 2px 6px rgba(0, 0, 0, 0.45);
+}
+
+.thought-bubble::before {
+  content: '“';
+  position: absolute;
+  top: -2px;
+  left: 8px;
+  font-family: var(--wfk-font-display);
+  font-size: 32px;
+  color: rgba(212, 175, 55, 0.55);
+  line-height: 1;
 }
 
 .thought-bubble__actor {
+  font-family: var(--wfk-font-display);
   font-size: 11px;
   font-weight: 700;
-  color: #ffd93d;
+  letter-spacing: 0.1em;
+  color: var(--wfk-gold-2);
   margin-bottom: 6px;
+  padding-left: 18px;
 }
 
 .thought-bubble__text {
-  color: var(--color-text-2);
-  line-height: 1.6;
+  color: #e8e2c8;
+  line-height: 1.7;
   font-size: 13px;
+  font-style: italic;
 }
 
 .replay__empty-timeline {
-  color: var(--color-text-3);
+  color: rgba(232, 226, 200, 0.45);
   text-align: center;
   padding: 32px;
+  font-family: var(--wfk-font-display);
+  font-style: italic;
 }
 </style>

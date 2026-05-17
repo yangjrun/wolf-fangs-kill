@@ -8,6 +8,14 @@ export type ToolName =
   | 'witch_poison'
   | 'witch_skip'
   | 'hunter_shoot'
+  | 'guard_protect'
+  | 'knight_duel'
+  | 'cupid_link'
+  | 'run_for_sheriff'
+  | 'skip_sheriff'
+  | 'sheriff_vote'
+  | 'transfer_badge'
+  | 'destroy_badge'
   | 'speak'
   | 'vote';
 
@@ -107,6 +115,137 @@ export const ALL_TOOLS: readonly ToolDefinition[] = [
     },
   },
   {
+    name: 'guard_protect',
+    description:
+      '守卫每晚守护一名玩家，被守的玩家当晚免狼刀。不能连续两晚守同一人。守人 + 女巫同晚救同一人会双解死亡（同守同救）。',
+    input_schema: {
+      type: 'object',
+      properties: {
+        target_id: {
+          type: 'string',
+          description: '要守护的玩家 ID。不能等于上一晚守护的目标。',
+        },
+        reasoning: {
+          type: 'string',
+          description: '为什么选这个目标。内心独白，不会公开。',
+        },
+      },
+      required: ['target_id', 'reasoning'],
+    },
+  },
+  {
+    name: 'knight_duel',
+    description:
+      '骑士每局只能用一次。白天发言时间向一名玩家发起决斗：目标当场翻牌。目标若是狼则狼死、骑士免疫；目标若非狼则骑士自爆死亡。决斗会替代你本回合的发言。',
+    input_schema: {
+      type: 'object',
+      properties: {
+        target_id: {
+          type: 'string',
+          description: '要决斗的玩家 ID（必须存活，不能是自己）。',
+        },
+        reasoning: {
+          type: 'string',
+          description: '为什么选这个目标。内心独白。',
+        },
+      },
+      required: ['target_id', 'reasoning'],
+    },
+  },
+  {
+    name: 'cupid_link',
+    description:
+      '丘比特首夜将两名玩家连为情侣。情侣双方互相知道身份，一方死亡另一方殉情。跨阵营情侣可形成新阵营：只剩两人存活时共同获胜。',
+    input_schema: {
+      type: 'object',
+      properties: {
+        target1_id: {
+          type: 'string',
+          description: '第一位情侣的玩家 ID',
+        },
+        target2_id: {
+          type: 'string',
+          description: '第二位情侣的玩家 ID（必须与 target1 不同）',
+        },
+        reasoning: {
+          type: 'string',
+          description: '为什么选这两位组成情侣。内心独白。',
+        },
+      },
+      required: ['target1_id', 'target2_id', 'reasoning'],
+    },
+  },
+  {
+    name: 'run_for_sheriff',
+    description:
+      '宣布参选警长，并发表竞选发言。content 是公开发言（其他玩家可见），internal_thought 是内心独白（不公开）。',
+    input_schema: {
+      type: 'object',
+      properties: {
+        content: {
+          type: 'string',
+          description: '竞选发言内容（公开）。',
+        },
+        internal_thought: {
+          type: 'string',
+          description: '你的真实策略和身份伪装思路。不会公开。',
+        },
+      },
+      required: ['content', 'internal_thought'],
+    },
+  },
+  {
+    name: 'skip_sheriff',
+    description: '放弃参选警长。',
+    input_schema: {
+      type: 'object',
+      properties: {
+        reasoning: { type: 'string', description: '为什么不上警。内心独白。' },
+      },
+      required: ['reasoning'],
+    },
+  },
+  {
+    name: 'sheriff_vote',
+    description:
+      '在警长选举中投票给一名参选者，或弃票。仅未上警的玩家可投。',
+    input_schema: {
+      type: 'object',
+      properties: {
+        target_id: {
+          type: 'string',
+          description: "要投票给的参选者 ID，或 'abstain' 表示弃票",
+        },
+        reasoning: { type: 'string', description: '为什么投这个目标。内心独白。' },
+      },
+      required: ['target_id', 'reasoning'],
+    },
+  },
+  {
+    name: 'transfer_badge',
+    description:
+      '警长死亡时将警徽传递给一名存活玩家。新警长继承 1.5 票权。',
+    input_schema: {
+      type: 'object',
+      properties: {
+        target_id: { type: 'string', description: '接任警长的玩家 ID（必须存活）' },
+        reasoning: { type: 'string', description: '为什么传给此人。内心独白。' },
+      },
+      required: ['target_id', 'reasoning'],
+    },
+  },
+  {
+    name: 'destroy_badge',
+    description: '撕毁警徽：不传给任何人，警徽永久销毁，本局后续无警长。',
+    input_schema: {
+      type: 'object',
+      properties: {
+        reasoning: { type: 'string', description: '为什么撕掉警徽。内心独白。' },
+      },
+      required: ['reasoning'],
+    },
+  },
+  {
     name: 'speak',
     description:
       '白天公开发言。content 会被所有玩家看到，internal_thought 不会。',
@@ -149,6 +288,12 @@ export const TOOL_NAMES: readonly ToolName[] = ALL_TOOLS.map((t) => t.name as To
 export const ALLOWED_TOOLS_PER_PHASE_AND_ROLE: Partial<
   Record<Phase, Partial<Record<Role, readonly ToolName[]>>>
 > = {
+  CUPID_LINK: {
+    cupid: ['cupid_link'],
+  },
+  GUARD_PROTECT: {
+    guard: ['guard_protect'],
+  },
   WEREWOLF_KILL: {
     werewolf: ['werewolf_kill'],
   },
@@ -164,11 +309,48 @@ export const ALLOWED_TOOLS_PER_PHASE_AND_ROLE: Partial<
   HUNTER_SHOOT_DAY: {
     hunter: ['hunter_shoot'],
   },
+  SHERIFF_RUNNING_FOR: {
+    werewolf: ['run_for_sheriff', 'skip_sheriff'],
+    seer: ['run_for_sheriff', 'skip_sheriff'],
+    witch: ['run_for_sheriff', 'skip_sheriff'],
+    hunter: ['run_for_sheriff', 'skip_sheriff'],
+    guard: ['run_for_sheriff', 'skip_sheriff'],
+    idiot: ['run_for_sheriff', 'skip_sheriff'],
+    knight: ['run_for_sheriff', 'skip_sheriff'],
+    cupid: ['run_for_sheriff', 'skip_sheriff'],
+    villager: ['run_for_sheriff', 'skip_sheriff'],
+  },
+  SHERIFF_VOTE: {
+    werewolf: ['sheriff_vote'],
+    seer: ['sheriff_vote'],
+    witch: ['sheriff_vote'],
+    hunter: ['sheriff_vote'],
+    guard: ['sheriff_vote'],
+    idiot: ['sheriff_vote'],
+    knight: ['sheriff_vote'],
+    cupid: ['sheriff_vote'],
+    villager: ['sheriff_vote'],
+  },
+  SHERIFF_BADGE_TRANSFER: {
+    werewolf: ['transfer_badge', 'destroy_badge'],
+    seer: ['transfer_badge', 'destroy_badge'],
+    witch: ['transfer_badge', 'destroy_badge'],
+    hunter: ['transfer_badge', 'destroy_badge'],
+    guard: ['transfer_badge', 'destroy_badge'],
+    idiot: ['transfer_badge', 'destroy_badge'],
+    knight: ['transfer_badge', 'destroy_badge'],
+    cupid: ['transfer_badge', 'destroy_badge'],
+    villager: ['transfer_badge', 'destroy_badge'],
+  },
   DAY_DISCUSSION: {
     werewolf: ['speak'],
     seer: ['speak'],
     witch: ['speak'],
     hunter: ['speak'],
+    guard: ['speak'],
+    idiot: ['speak'],
+    knight: ['speak', 'knight_duel'],
+    cupid: ['speak'],
     villager: ['speak'],
   },
   DAY_VOTE: {
@@ -176,6 +358,10 @@ export const ALLOWED_TOOLS_PER_PHASE_AND_ROLE: Partial<
     seer: ['vote'],
     witch: ['vote'],
     hunter: ['vote'],
+    guard: ['vote'],
+    idiot: ['vote'],
+    knight: ['vote'],
+    cupid: ['vote'],
     villager: ['vote'],
   },
 };
@@ -188,6 +374,14 @@ export const TOOL_TO_ACTION_TYPE: Record<ToolName, PlayerAction['type']> = {
   witch_poison: 'WITCH_POISON',
   witch_skip: 'WITCH_SKIP',
   hunter_shoot: 'HUNTER_SHOOT',
+  guard_protect: 'GUARD_PROTECT',
+  knight_duel: 'KNIGHT_DUEL',
+  cupid_link: 'CUPID_LINK',
+  run_for_sheriff: 'RUN_FOR_SHERIFF',
+  skip_sheriff: 'SKIP_SHERIFF',
+  sheriff_vote: 'SHERIFF_VOTE',
+  transfer_badge: 'TRANSFER_BADGE',
+  destroy_badge: 'DESTROY_BADGE',
   speak: 'SPEAK',
   vote: 'VOTE',
 };
@@ -221,6 +415,35 @@ export function toolCallToAction(
         targetId: targetId && targetId !== '' ? targetId : null,
         reasoning,
       };
+    case 'guard_protect':
+      if (!targetId) return null;
+      return { type: 'GUARD_PROTECT', playerId, targetId, reasoning };
+    case 'knight_duel':
+      if (!targetId) return null;
+      return { type: 'KNIGHT_DUEL', playerId, targetId, reasoning };
+    case 'cupid_link': {
+      const t1 = typeof input['target1_id'] === 'string' ? (input['target1_id'] as string) : '';
+      const t2 = typeof input['target2_id'] === 'string' ? (input['target2_id'] as string) : '';
+      if (!t1 || !t2) return null;
+      return { type: 'CUPID_LINK', playerId, target1Id: t1, target2Id: t2, reasoning };
+    }
+    case 'run_for_sheriff':
+      return {
+        type: 'RUN_FOR_SHERIFF',
+        playerId,
+        content: String(input['content'] ?? ''),
+        internalThought: String(input['internal_thought'] ?? ''),
+      };
+    case 'skip_sheriff':
+      return { type: 'SKIP_SHERIFF', playerId, reasoning };
+    case 'sheriff_vote':
+      if (!targetId) return null;
+      return { type: 'SHERIFF_VOTE', playerId, targetId, reasoning };
+    case 'transfer_badge':
+      if (!targetId) return null;
+      return { type: 'TRANSFER_BADGE', playerId, targetId, reasoning };
+    case 'destroy_badge':
+      return { type: 'DESTROY_BADGE', playerId, reasoning };
     case 'speak':
       return {
         type: 'SPEAK',

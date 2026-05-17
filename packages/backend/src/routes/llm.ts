@@ -70,10 +70,33 @@ llmRoutes.post('/messages', async (c) => {
 
   const client = new Anthropic({ apiKey, baseURL: normalizedBaseURL });
 
+  // Convention: model name suffix "[1m]" opts in to the 1M-context window.
+  // Different endpoints expect different things:
+  //   - Official Anthropic API: bare model ID (e.g. "claude-sonnet-4-6") plus
+  //     the "context-1m-2025-08-07" beta header.
+  //   - Third-party relays (e.g. common Chinese gateways): the literal
+  //     "[1m]"-suffixed model name and NO beta header (their 1M offering is
+  //     GA from their side; sending the beta header makes them 503).
+  //     The account often also needs a "1m context" toggle enabled in the
+  //     relay's dashboard.
+  const usingRelay = Boolean(normalizedBaseURL);
+  const rawModel = typeof body['model'] === 'string' ? body['model'] : '';
+  const wants1M = rawModel.endsWith('[1m]');
+  const cleanModel =
+    wants1M && !usingRelay ? rawModel.slice(0, -'[1m]'.length) : rawModel;
+  const requestOptions =
+    wants1M && !usingRelay
+      ? { headers: { 'anthropic-beta': 'context-1m-2025-08-07' } }
+      : undefined;
+
   try {
     // Force non-streaming response (we don't support SSE pass-through in M2).
-    const params = { ...body, stream: false } as Anthropic.MessageCreateParamsNonStreaming;
-    const response = await client.messages.create(params);
+    const params = {
+      ...body,
+      model: cleanModel || body['model'],
+      stream: false,
+    } as Anthropic.MessageCreateParamsNonStreaming;
+    const response = await client.messages.create(params, requestOptions);
 
     const usage = response.usage;
     const stats: UsageStats = {
