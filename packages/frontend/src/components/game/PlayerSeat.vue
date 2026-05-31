@@ -28,9 +28,10 @@ const initial = computed(() => {
   return String(props.player.seat);
 });
 
-// Revealed idiots show their role publicly even while alive (only when not hidden).
+// Show role when: human viewer is looking at their own seat (always),
+// or it's a public reveal (death / god view / revealed idiot) and not night-hidden.
 const showRole = computed(
-  () => !props.hideIdentity && (!props.player.alive || props.godView || props.player.revealed),
+  () => props.player.isHuman || (!props.hideIdentity && (!props.player.alive || props.godView || props.player.revealed)),
 );
 const factionClass = computed(() =>
   ROLE_FACTIONS[props.player.role] === 'wolves' ? 'wax-seal' : 'wax-seal wax-seal--village'

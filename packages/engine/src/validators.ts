@@ -244,6 +244,22 @@ export function validateAction(state: GameState, action: PlayerAction): Validati
       if (action.content.length === 0) {
         return new ValidationError('Campaign speech cannot be empty', 'EMPTY_SPEECH');
       }
+      // Validate campaign speech length (only enforce max, not min for flexibility)
+      const difficulty = state.config.difficulty || 'normal';
+      const contentLength = action.content.length;
+      const lengthLimits: Record<string, { max: number }> = {
+        easy: { max: 200 },
+        normal: { max: 180 },
+        hard: { max: 150 },
+        expert: { max: 120 },
+      };
+      const limits = lengthLimits[difficulty] ?? lengthLimits['normal'];
+      if (limits && contentLength > limits.max) {
+        return new ValidationError(
+          `Campaign speech too long (${contentLength} chars, max ${limits.max} for ${difficulty} difficulty)`,
+          'SPEECH_TOO_LONG',
+        );
+      }
       return null;
     }
 
@@ -331,6 +347,22 @@ export function validateAction(state: GameState, action: PlayerAction): Validati
       }
       if (action.content.length === 0) {
         return new ValidationError('Speech content cannot be empty', 'EMPTY_SPEECH');
+      }
+      // Validate speech length based on difficulty (only enforce max, not min for flexibility)
+      const difficulty = state.config.difficulty || 'normal';
+      const contentLength = action.content.length;
+      const lengthLimits: Record<string, { max: number }> = {
+        easy: { max: 200 },
+        normal: { max: 150 },
+        hard: { max: 120 },
+        expert: { max: 100 },
+      };
+      const limits = lengthLimits[difficulty] ?? lengthLimits['normal'];
+      if (limits && contentLength > limits.max) {
+        return new ValidationError(
+          `Speech too long (${contentLength} chars, max ${limits.max} for ${difficulty} difficulty)`,
+          'SPEECH_TOO_LONG',
+        );
       }
       return null;
     }

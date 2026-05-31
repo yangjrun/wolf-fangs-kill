@@ -4,6 +4,7 @@
 
 export type Role = 'werewolf' | 'seer' | 'witch' | 'hunter' | 'guard' | 'idiot' | 'knight' | 'cupid' | 'villager';
 export type Faction = 'wolves' | 'villagers' | 'lovers';
+export type Difficulty = 'easy' | 'normal' | 'hard' | 'expert';
 
 /**
  * Win conditions are configurable per board. The engine evaluates these in
@@ -143,8 +144,6 @@ export interface DeathRecord {
   cause: DeathCause;
   killerId?: string;
 }
-
-export type Difficulty = 'easy' | 'normal' | 'hard';
 
 export interface GameConfig {
   seed: string;

@@ -10,8 +10,25 @@ import {
   progress,
 } from "@wfk/engine";
 import { Agent, FlowToken, LLMClient, Orchestrator } from "@wfk/ai-agents";
-import { DEFAULT_DIFFICULTY, PERSONAS, narrationForPhase } from "@wfk/shared";
-import type { Difficulty, GameEvent, PendingAction, PlayerAction } from "@wfk/shared";
+import {
+  DEFAULT_DIFFICULTY,
+  PERSONA_BY_ID,
+  PERSONAS,
+  gameOpeningLine,
+  narrationForPhase,
+} from "@wfk/shared";
+import type { Difficulty, GameEvent, PendingAction, Persona, PlayerAction } from "@wfk/shared";
+
+const SPOTLIGHT_MIN_CHARS = 20;
+
+export interface SpotlightSpeech {
+  playerId: string;
+  persona: Persona | null;
+  content: string;
+  internalThought: string;
+  day: number;
+  type: "SPEAK" | "SHERIFF_RUN";
+}
 
 interface StartOptions {
   seed?: string;
@@ -25,7 +42,13 @@ interface StartOptions {
     action: PlayerAction;
     reasoning: string;
     latencyMs: number;
+    stats?: {
+      contentLength?: number;
+      reasoningLength?: number;
+      internalThoughtLength?: number;
+    };
   }) => void;
+  onSpeech?: (speech: SpotlightSpeech) => Promise<void>;
 }
 
 export function useGameLoop() {
@@ -75,6 +98,16 @@ export function useGameLoop() {
 
     gameStore.isRunning = true;
 
+    // Opening cue: speak "游戏开始, {board}, 请查看身份" and pause so the human
+    // player can glance at their own seat (which shows their role) before the
+    // first "天黑了" narration cuts in. The narrator runs its own queue, so the
+    // opening line and "天黑了" can't trample each other if they overlap.
+    if (settings.narratorEnabled) {
+      narrator.speak(gameOpeningLine(state.board));
+    }
+    await sleep(2000);
+    if (!token.isValid()) return;
+
     try {
       let safety = 0;
       while (state.phase !== "GAME_END" && token.isValid() && safety++ < 500) {
@@ -84,7 +117,7 @@ export function useGameLoop() {
         state = next;
         gameStore.pushEvents(events);
         gameStore.setState(state);
-        narrateEvents(events);
+        narrateEvents(events, state.board);
 
         if (stepDelayMs > 0) await sleep(stepDelayMs);
         if (state.phase === "GAME_END" || pending.length === 0) break;
@@ -99,6 +132,8 @@ export function useGameLoop() {
             });
             if (!token.isValid()) return;
             state = applyResolvedAction(state, action);
+            await maybeSpotlight(action, state, opts.onSpeech, mode);
+            if (!token.isValid()) return;
             if (stepDelayMs > 0) await sleep(stepDelayMs);
           }
         } else {
@@ -117,12 +152,15 @@ export function useGameLoop() {
 
           for (const action of [...aiActions, ...humanActions]) {
             state = applyResolvedAction(state, action);
+            await maybeSpotlight(action, state, opts.onSpeech, mode);
+            if (!token.isValid()) return;
           }
           if (stepDelayMs > 0) await sleep(stepDelayMs);
         }
       }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
+      console.error('[useGameLoop] Game loop error:', err);
       gameStore.setError(msg);
     } finally {
       if (token === flowToken) gameStore.isRunning = false;
@@ -141,7 +179,7 @@ export function useGameLoop() {
     }
     gameStore.pushEvents(events);
     gameStore.setState(next);
-    narrateEvents(events);
+    narrateEvents(events, next.board);
     return next;
   }
 
@@ -151,11 +189,14 @@ export function useGameLoop() {
     narrator.stop();
   }
 
-  function narrateEvents(events: GameEvent[]): void {
+  function narrateEvents(events: GameEvent[], board: ReturnType<typeof createGame>['board']): void {
     if (!settings.narratorEnabled) return;
     for (const e of events) {
       if (e.type === 'PHASE_TRANSITION') {
-        const line = narrationForPhase(e.to as Parameters<typeof narrationForPhase>[0]);
+        const line = narrationForPhase(
+          e.to as Parameters<typeof narrationForPhase>[0],
+          board,
+        );
         if (line) narrator.speak(line);
       }
     }
@@ -186,6 +227,31 @@ function isHumanPending(
   return Boolean(
     state.players.find((p) => p.id === pending.playerId && p.isHuman),
   );
+}
+
+async function maybeSpotlight(
+  action: PlayerAction,
+  state: ReturnType<typeof createGame>,
+  onSpeech: StartOptions["onSpeech"],
+  mode: "demo" | "ai",
+): Promise<void> {
+  if (!onSpeech) return;
+  if (mode !== "ai") return;
+  if (action.type !== "SPEAK" && action.type !== "RUN_FOR_SHERIFF") return;
+  const content = action.content.trim();
+  if (content.length < SPOTLIGHT_MIN_CHARS) return;
+
+  const player = state.players.find((p) => p.id === action.playerId);
+  const persona = player?.personaId ? PERSONA_BY_ID[player.personaId] ?? null : null;
+
+  await onSpeech({
+    playerId: action.playerId,
+    persona,
+    content: action.content,
+    internalThought: action.internalThought,
+    day: state.day,
+    type: action.type === "SPEAK" ? "SPEAK" : "SHERIFF_RUN",
+  });
 }
 
 function createOrchestrator(params: {

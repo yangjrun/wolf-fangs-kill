@@ -16,6 +16,11 @@ export interface OrchestratorOptions {
     reasoning: string;
     latencyMs: number;
     usage: TokenUsage;
+    stats?: {
+      contentLength?: number;
+      reasoningLength?: number;
+      internalThoughtLength?: number;
+    };
   }) => void;
 }
 
@@ -111,12 +116,31 @@ export class Orchestrator {
         typeof decision.toolCall.input['reasoning'] === 'string'
           ? (decision.toolCall.input['reasoning'] as string)
           : (decision.toolCall.input['internal_thought'] as string) ?? '';
+
+      // Extract statistics from the action
+      const stats: {
+        contentLength?: number;
+        reasoningLength?: number;
+        internalThoughtLength?: number;
+      } = {};
+
+      if (typeof decision.toolCall.input['content'] === 'string') {
+        stats.contentLength = (decision.toolCall.input['content'] as string).length;
+      }
+      if (typeof decision.toolCall.input['reasoning'] === 'string') {
+        stats.reasoningLength = (decision.toolCall.input['reasoning'] as string).length;
+      }
+      if (typeof decision.toolCall.input['internal_thought'] === 'string') {
+        stats.internalThoughtLength = (decision.toolCall.input['internal_thought'] as string).length;
+      }
+
       this.onDecision({
         playerId: pending.playerId,
         action,
         reasoning,
         latencyMs: decision.latencyMs,
         usage: decision.usage,
+        stats,
       });
     }
 

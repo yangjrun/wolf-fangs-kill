@@ -16,11 +16,17 @@ const localNarratorEnabled = ref(settings.narratorEnabled);
 const localNarratorRate = ref(settings.narratorRate);
 const localNarratorVoiceName = ref(settings.narratorVoiceName);
 const localNightVisionMode = ref(settings.nightVisionMode);
+const localSpeechSpotlightEnabled = ref(settings.speechSpotlightEnabled);
 
 const voices = ref<SpeechSynthesisVoice[]>([]);
 
 function refreshVoices() {
-  voices.value = narrator.availableVoices();
+  try {
+    voices.value = narrator.availableVoices();
+  } catch (err) {
+    console.error('[SettingsView] Failed to load voices:', err);
+    voices.value = [];
+  }
 }
 
 onMounted(() => {
@@ -63,6 +69,7 @@ function save() {
   settings.narratorRate = localNarratorRate.value;
   settings.narratorVoiceName = localNarratorVoiceName.value;
   settings.nightVisionMode = localNightVisionMode.value;
+  settings.speechSpotlightEnabled = localSpeechSpotlightEnabled.value;
   Message.success('设置已保存到本地');
 }
 
@@ -157,6 +164,13 @@ function back() {
           <a-switch v-model="localNightVisionMode" />
           <template #help>
             夜间阶段隐藏其他玩家的头像/人格信息，营造"闭眼"沉浸感。上帝视角下不生效。
+          </template>
+        </a-form-item>
+
+        <a-form-item label="发言聚光模式">
+          <a-switch v-model="localSpeechSpotlightEnabled" />
+          <template #help>
+            AI 模式下，当玩家进行长发言（≥20 字）时切换到舞台版式：左侧迷你座位、中央立绘、右侧实时字幕。可点击"跳过"立即推进。仅 AI 模式生效。
           </template>
         </a-form-item>
 

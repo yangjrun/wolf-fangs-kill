@@ -1,5 +1,6 @@
 import { defineStore } from "pinia";
 import { ref, watch } from "vue";
+import type { Difficulty } from "@wfk/shared";
 
 const STORAGE_KEY = "wfk-settings-v1";
 
@@ -12,6 +13,8 @@ interface PersistedSettings {
   narratorRate: number;
   narratorVoiceName: string;
   nightVisionMode: boolean;
+  speechSpotlightEnabled: boolean;
+  difficulty: Difficulty;
 }
 
 const DEFAULTS: PersistedSettings = {
@@ -23,6 +26,8 @@ const DEFAULTS: PersistedSettings = {
   narratorRate: 1.0,
   narratorVoiceName: "",
   nightVisionMode: true,
+  speechSpotlightEnabled: true,
+  difficulty: "normal",
 };
 
 function load(): PersistedSettings {
@@ -46,6 +51,8 @@ export const useSettingsStore = defineStore("settings", () => {
   const narratorRate = ref(loaded.narratorRate);
   const narratorVoiceName = ref(loaded.narratorVoiceName);
   const nightVisionMode = ref(loaded.nightVisionMode);
+  const speechSpotlightEnabled = ref(loaded.speechSpotlightEnabled);
+  const difficulty = ref<Difficulty>(loaded.difficulty);
 
   watch(
     [
@@ -57,6 +64,8 @@ export const useSettingsStore = defineStore("settings", () => {
       narratorRate,
       narratorVoiceName,
       nightVisionMode,
+      speechSpotlightEnabled,
+      difficulty,
     ],
     () => {
       try {
@@ -71,6 +80,8 @@ export const useSettingsStore = defineStore("settings", () => {
             narratorRate: narratorRate.value,
             narratorVoiceName: narratorVoiceName.value,
             nightVisionMode: nightVisionMode.value,
+            speechSpotlightEnabled: speechSpotlightEnabled.value,
+            difficulty: difficulty.value,
           }),
         );
       } catch {
@@ -88,5 +99,7 @@ export const useSettingsStore = defineStore("settings", () => {
     narratorRate,
     narratorVoiceName,
     nightVisionMode,
+    speechSpotlightEnabled,
+    difficulty,
   };
 });

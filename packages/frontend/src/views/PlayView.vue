@@ -1,13 +1,15 @@
 <script setup lang="ts">
-import { computed, onUnmounted, ref } from 'vue';
+import { computed, onUnmounted, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { useGameStore } from '@/stores/game';
 import { useSettingsStore } from '@/stores/settings';
 import { useGameLoop } from '@/composables/useGameLoop';
+import { useSpeechSpotlight } from '@/composables/useSpeechSpotlight';
 import SeatRing from '@/components/game/SeatRing.vue';
 import PhaseIndicator from '@/components/game/PhaseIndicator.vue';
 import PublicLog from '@/components/game/PublicLog.vue';
 import ActionPanel from '@/components/game/ActionPanel.vue';
+import SpeechSpotlight from '@/components/game/SpeechSpotlight.vue';
 import {
   BOARDS,
   DEFAULT_BOARD_ID,
@@ -16,13 +18,25 @@ import {
   PERSONAS,
   isNightPhase,
 } from '@wfk/shared';
-import type { Difficulty } from '@wfk/shared';
+import type { Difficulty, Phase } from '@wfk/shared';
 import { RNG } from '@wfk/engine';
+
+const SPEECH_PHASES: ReadonlySet<Phase> = new Set<Phase>([
+  'DAY_DISCUSSION',
+  'SHERIFF_RUNNING_FOR',
+]);
 
 const router = useRouter();
 const gameStore = useGameStore();
 const settings = useSettingsStore();
 const { start, stop } = useGameLoop();
+const {
+  active: spotlightActive,
+  typedChars: spotlightTyped,
+  show: spotlightShow,
+  skip: spotlightSkip,
+  dismiss: spotlightDismiss,
+} = useSpeechSpotlight();
 
 const seedInput = ref(`seed-${Date.now()}`);
 const mode = ref<'demo' | 'ai'>('demo');
@@ -100,22 +114,33 @@ async function onStart() {
       decisions.value.unshift({ playerId, reasoning, ts: Date.now() });
       if (decisions.value.length > 20) decisions.value.pop();
     },
+    ...(settings.speechSpotlightEnabled ? { onSpeech: spotlightShow } : {}),
   });
 }
 
 function onStop() {
   stop();
+  spotlightDismiss();
 }
 
 function onReset() {
   stop();
+  spotlightDismiss();
   gameStore.reset();
   decisions.value = [];
   seedInput.value = `seed-${Date.now()}`;
 }
 
+watch(
+  () => gameStore.phase,
+  (next) => {
+    if (!SPEECH_PHASES.has(next)) spotlightDismiss();
+  },
+);
+
 onUnmounted(() => {
   stop();
+  spotlightDismiss();
 });
 </script>
 
@@ -247,6 +272,20 @@ onUnmounted(() => {
       <hr class="gilt-rule">
       <div class="play__end-reason">{{ gameStore.endReason }}</div>
     </footer>
+
+    <SpeechSpotlight
+      v-if="spotlightActive"
+      :active="spotlightActive"
+      :typed-chars="spotlightTyped"
+      :players="gameStore.players"
+      :persona-names="personaNames"
+      :lovers="gameStore.state?.lovers ?? null"
+      :sheriff-id="gameStore.state?.sheriff.playerId ?? null"
+      :god-view="godView"
+      :day="gameStore.day"
+      :phase="gameStore.phase"
+      @skip="spotlightSkip"
+    />
   </div>
 </template>
 

@@ -1,10 +1,40 @@
 <script setup lang="ts">
+import { ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { useSettingsStore } from '@/stores/settings';
+import { DIFFICULTY_NAMES_ZH } from '@wfk/shared';
+import type { Difficulty } from '@wfk/shared';
+
 const router = useRouter();
 const settings = useSettingsStore();
 
+const selectedDifficulty = ref<Difficulty>(settings.difficulty);
+
+const difficultyOptions = [
+  {
+    value: 'easy' as Difficulty,
+    label: DIFFICULTY_NAMES_ZH.easy,
+    desc: '新手友好，AI 思路直白，发言较长'
+  },
+  {
+    value: 'normal' as Difficulty,
+    label: DIFFICULTY_NAMES_ZH.normal,
+    desc: '标准难度，AI 有基础战术意识'
+  },
+  {
+    value: 'hard' as Difficulty,
+    label: DIFFICULTY_NAMES_ZH.hard,
+    desc: '高手对决，AI 擅长深度博弈和信息管理'
+  },
+  {
+    value: 'expert' as Difficulty,
+    label: DIFFICULTY_NAMES_ZH.expert,
+    desc: '职业选手级别，AI 精通心理博弈和高级战术'
+  },
+];
+
 function startGame() {
+  settings.difficulty = selectedDifficulty.value;
   router.push('/play');
 }
 </script>
@@ -25,6 +55,21 @@ function startGame() {
         9 个玩家（你 + 8 个 Claude AI），3 狼 + 预言家 + 女巫 + 猎人 + 3 平民。
         每个 AI 有独立的性格设定，会发言、推理、撒谎、找狼。
       </p>
+
+      <div class="home__difficulty">
+        <div class="home__difficulty-label">AI 难度</div>
+        <a-radio-group v-model="selectedDifficulty" type="button" size="large">
+          <a-radio
+            v-for="option in difficultyOptions"
+            :key="option.value"
+            :value="option.value"
+          >
+            <a-tooltip :content="option.desc" position="top">
+              {{ option.label }}
+            </a-tooltip>
+          </a-radio>
+        </a-radio-group>
+      </div>
 
       <div class="home__actions">
         <a-button type="primary" size="large" @click="startGame">
@@ -151,12 +196,25 @@ Claude AI 模式会优先使用浏览器设置里的 API Key；留空时使用�
   font-size: 14px;
   line-height: 1.8;
   color: #e8e2c8;
-  margin: 0 auto 28px;
+  margin: 0 auto 24px;
   max-width: 480px;
   padding: 16px 20px;
   border-top: 1px solid rgba(212, 175, 55, 0.22);
   border-bottom: 1px solid rgba(212, 175, 55, 0.22);
   font-style: italic;
+}
+
+.home__difficulty {
+  margin-bottom: 24px;
+}
+
+.home__difficulty-label {
+  font-family: var(--wfk-font-display);
+  font-size: 13px;
+  letter-spacing: 0.15em;
+  color: var(--wfk-gold-1);
+  margin-bottom: 12px;
+  text-align: center;
 }
 
 .home__actions {

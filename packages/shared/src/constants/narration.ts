@@ -1,4 +1,4 @@
-import type { Phase } from '../types/game.js';
+import type { BoardConfig, Phase, Role } from '../types/game.js';
 
 /**
  * Narration text spoken at each phase entry. Lines marked OPEN are spoken when
@@ -27,8 +27,46 @@ export const PHASE_NARRATION_OPEN: Partial<Record<Phase, string>> = {
 };
 
 /**
- * Convenience: emit narration for the given phase if defined.
+ * Phases whose narration is meaningful only when a specific role is part of
+ * the board template. The narrator stays silent for these phases when the
+ * board's role list doesn't include the required role — e.g. a 9-standard
+ * board has no cupid, so "丘比特请睁眼" must never be spoken.
+ *
+ * Role presence is checked against the board template, NOT against living
+ * players: once a role exists on the board, the line is read every night
+ * even if that player is dead (法官按板念词，不能因角色死亡而停，否则泄底).
  */
-export function narrationForPhase(phase: Phase): string | undefined {
+export const PHASE_REQUIRED_ROLE: Partial<Record<Phase, Role>> = {
+  CUPID_LINK: 'cupid',
+  GUARD_PROTECT: 'guard',
+  SEER_CHECK: 'seer',
+  WITCH_ACTION: 'witch',
+  HUNTER_SHOOT_NIGHT: 'hunter',
+  HUNTER_SHOOT_DAY: 'hunter',
+};
+
+/**
+ * Convenience: emit narration for the given phase if defined.
+ *
+ * Pass `board` to suppress phases whose required role isn't on this board's
+ * template (see PHASE_REQUIRED_ROLE). Omitting it preserves legacy behavior.
+ */
+export function narrationForPhase(
+  phase: Phase,
+  board?: Pick<BoardConfig, 'roles'>,
+): string | undefined {
+  const requiredRole = PHASE_REQUIRED_ROLE[phase];
+  if (requiredRole && board && !board.roles.includes(requiredRole)) {
+    return undefined;
+  }
   return PHASE_NARRATION_OPEN[phase];
+}
+
+/**
+ * Opening line spoken once when a game starts, before NIGHT_START.
+ * Gives the human player a moment to read their own role from their seat
+ * before the first "天黑了" cue.
+ */
+export function gameOpeningLine(board: Pick<BoardConfig, 'name'>): string {
+  return `游戏开始，${board.name}，请各位玩家查看自己的身份。`;
 }

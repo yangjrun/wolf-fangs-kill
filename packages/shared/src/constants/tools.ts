@@ -184,11 +184,11 @@ export const ALL_TOOLS: readonly ToolDefinition[] = [
       properties: {
         content: {
           type: 'string',
-          description: '竞选发言内容（公开）。',
+          description: '竞选发言内容（公开）。要求：简洁有力，60-150字。说明为什么你适合当警长，展示身份但不要过度暴露。',
         },
         internal_thought: {
           type: 'string',
-          description: '你的真实策略和身份伪装思路。不会公开。',
+          description: '你的真实策略和身份伪装思路。不会公开。要求：详细推理，至少50字。',
         },
       },
       required: ['content', 'internal_thought'],
@@ -248,17 +248,17 @@ export const ALL_TOOLS: readonly ToolDefinition[] = [
   {
     name: 'speak',
     description:
-      '白天公开发言。content 会被所有玩家看到，internal_thought 不会。',
+      '白天公开发言。content 会被所有玩家看到，internal_thought 不会。发言要简洁有力，避免啰嗦。',
     input_schema: {
       type: 'object',
       properties: {
         content: {
           type: 'string',
-          description: '公开发言内容，其他玩家会看到。',
+          description: '公开发言内容，其他玩家会看到。要求：简洁有力，40-120字。高手发言精炼，新手可稍长。重点突出，避免废话。',
         },
         internal_thought: {
           type: 'string',
-          description: '你的真实想法和策略，永远不会被其他玩家看到，仅用于复盘。',
+          description: '你的真实想法和策略，永远不会被其他玩家看到，仅用于复盘。要求：详细的多步推理，至少50字。',
         },
       },
       required: ['content', 'internal_thought'],

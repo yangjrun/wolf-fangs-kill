@@ -243,7 +243,7 @@ describe('Difficulty levels', () => {
       difficulty: 'hard',
     });
     expect(prompt).toContain('Hard');
-    expect(prompt).toMatch(/长线博弈|高水平/);
+    expect(prompt).toMatch(/深度博弈|高手模式/);
   });
 
   it('easy difficulty system prompt includes easy hints', () => {
