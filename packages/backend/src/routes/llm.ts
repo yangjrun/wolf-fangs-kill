@@ -16,8 +16,13 @@ llmRoutes.post('/messages', async (c) => {
   const headerBaseUrl = c.req.header('X-Anthropic-Base-Url')?.trim();
   const envApiKey = process.env['ANTHROPIC_API_KEY']?.trim();
   const envBaseUrl = process.env['ANTHROPIC_BASE_URL']?.trim();
+
+  // Use header key if provided, otherwise fall back to env key
   const apiKey = headerKey || envApiKey;
-  const baseURL = headerKey ? headerBaseUrl : envBaseUrl;
+
+  // Use header base URL if header key is provided, otherwise use env base URL
+  // This allows: header key + header URL, or env key + header URL, or env key + env URL
+  const baseURL = headerBaseUrl || envBaseUrl;
 
   if (!apiKey) {
     return c.json(
@@ -29,18 +34,6 @@ llmRoutes.post('/messages', async (c) => {
         },
       },
       401
-    );
-  }
-
-  if (headerBaseUrl && !headerKey) {
-    return c.json(
-      {
-        error: {
-          type: 'invalid_request',
-          message: 'X-Anthropic-Base-Url requires X-Anthropic-Api-Key.',
-        },
-      },
-      400
     );
   }
 
